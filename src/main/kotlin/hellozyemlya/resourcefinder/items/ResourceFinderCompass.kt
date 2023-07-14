@@ -11,6 +11,7 @@ import net.minecraft.text.Style
 import net.minecraft.text.Text
 import net.minecraft.text.TextColor
 import net.minecraft.text.Texts
+import net.minecraft.util.StringHelper
 import net.minecraft.util.math.BlockPos
 import net.minecraft.world.World
 
@@ -21,11 +22,18 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
 
     override fun appendTooltip(stack: ItemStack, world: World?, tooltip: MutableList<Text?>, context: TooltipContext?) {
         ScanNbt(stack).forEach { scanEntry ->
+            val blockName = Texts.setStyleIfAbsent(
+                scanEntry.entry.resource.name.copyContentOnly(),
+                Style.EMPTY.withColor(TextColor.fromRgb(scanEntry.entry.color))
+            )
             tooltip.add(
-                Texts.setStyleIfAbsent(
-                    scanEntry.entry.resource.name.copyContentOnly(),
-                    Style.EMPTY.withColor(TextColor.fromRgb(scanEntry.entry.color))
-                )
+                Texts.join(
+                    mutableListOf(
+                        Text.of("Finds"),
+                        blockName,
+                        Text.of("for"),
+                        Text.of(StringHelper.formatTicks(scanEntry.lifetime))
+                    ), Text.of(" "))
             )
         }
     }
