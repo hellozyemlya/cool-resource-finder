@@ -15,12 +15,13 @@ import net.minecraft.util.math.BlockPos
 import net.minecraft.util.math.MathHelper
 import net.minecraft.util.math.RotationAxis
 import net.minecraft.util.math.Vec3d
+import kotlin.math.atan2
 
 class ResourceFinderCompassRenderer : HeldItemRenderer {
 
 
     companion object {
-        val COMPASS_3D_ARROW_COLOR_KEY = "compass3d.arrow.color"
+        private const val COMPASS_3D_ARROW_COLOR_KEY = "compass3d.arrow.color"
         private val colorLessArrowItemStack: ItemStack = ItemStack(ResourceFinder.RESOURCE_FINDER_ARROW_ITEM)
         private val colorToArrowStack: MutableMap<Int, ItemStack> = HashMap()
 
@@ -45,7 +46,7 @@ class ResourceFinderCompassRenderer : HeldItemRenderer {
 
         private fun getAngleTo(entity: Entity, pos: BlockPos): Double {
             val vec3d = Vec3d.ofCenter(pos)
-            return Math.atan2(vec3d.getZ() - entity.z, vec3d.getX() - entity.x) / 6.2831854820251465
+            return atan2(vec3d.getZ() - entity.z, vec3d.getX() - entity.x) / 6.2831854820251465
         }
 
         private fun getBodyYaw(entity: Entity): Double {

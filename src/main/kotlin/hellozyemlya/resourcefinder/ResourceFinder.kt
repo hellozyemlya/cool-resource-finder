@@ -16,18 +16,18 @@ import net.minecraft.util.Identifier
 import org.slf4j.LoggerFactory
 
 object ResourceFinder : ModInitializer {
-    const val MOD_NAMESPACE = "cool-resource-finder"
+    private const val MOD_NAMESPACE = "cool-resource-finder"
 
     val RESOURCE_FINDER_ITEM: ResourceFinderCompass = Registry.register(
         Registries.ITEM, Identifier(MOD_NAMESPACE, "resource_finder_compass"),
         ResourceFinderCompass(FabricItemSettings().maxCount(1))
     )
 
-    val RESOURCE_FINDER_ARROW_ITEM = Registry.register(
+    val RESOURCE_FINDER_ARROW_ITEM: Item = Registry.register(
         Registries.ITEM, Identifier(MOD_NAMESPACE, "resource_finder_compass_arrow"),
         Item(FabricItemSettings().maxCount(1))
     )
-    val RESOURCE_FINDER_GROUP: ItemGroup = FabricItemGroup.builder(Identifier(MOD_NAMESPACE, "resource_finder"))
+    private val RESOURCE_FINDER_GROUP: ItemGroup = FabricItemGroup.builder(Identifier(MOD_NAMESPACE, "resource_finder"))
         .icon { ItemStack(RESOURCE_FINDER_ITEM) }
 		.displayName(Text.translatable("itemGroup.tutorial.test_group"))
         .build()

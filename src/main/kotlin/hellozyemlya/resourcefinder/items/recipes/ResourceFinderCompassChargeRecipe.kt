@@ -16,7 +16,7 @@ import net.minecraft.world.World
 import java.util.*
 import java.util.stream.IntStream
 
-public class ResourceFinderCompassChargeRecipe(private val id: Identifier) : CraftingRecipe {
+class ResourceFinderCompassChargeRecipe(private val id: Identifier) : CraftingRecipe {
     override fun matches(inventory: CraftingInventory, world: World): Boolean {
         val allStacks = IntStream.range(0, inventory.size())
             .mapToObj { slot: Int -> inventory.getStack(slot) }
@@ -31,7 +31,7 @@ public class ResourceFinderCompassChargeRecipe(private val id: Identifier) : Cra
         if (otherStack.isEmpty) return false
         val registryEntry: Optional<ScanRegistry.RegistryEntry> =
             ScanRegistry.INSTANCE.getByChargingItem(otherStack.get().item)
-        return if (registryEntry.isEmpty()) false else true
+        return !registryEntry.isEmpty
     }
 
     override fun craft(inventory: CraftingInventory, registryManager: DynamicRegistryManager): ItemStack {

@@ -70,9 +70,7 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
     }
 
     data class ScanEntry(val entry: ScanRegistry.RegistryEntry, var lifetime: Int)
-    class ScanNbt : NbtArray<ScanEntry> {
-        constructor() : super()
-        constructor(stack: ItemStack) : super(stack)
+    class ScanNbt(stack: ItemStack) : NbtArray<ScanEntry>(stack) {
 
 
         override fun read(nbt: NbtCompound) {
