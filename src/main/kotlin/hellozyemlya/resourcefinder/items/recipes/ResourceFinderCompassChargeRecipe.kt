@@ -3,7 +3,7 @@ package hellozyemlya.resourcefinder.items.recipes
 import com.google.gson.JsonObject
 import hellozyemlya.resourcefinder.ResourceFinder
 import hellozyemlya.resourcefinder.ScanRegistry
-import hellozyemlya.resourcefinder.items.ResourceFinderCompass
+import hellozyemlya.resourcefinder.items.nbt.ResourceFinderCompassScanNbt
 import net.minecraft.inventory.CraftingInventory
 import net.minecraft.item.ItemStack
 import net.minecraft.network.PacketByteBuf
@@ -48,9 +48,11 @@ public class ResourceFinderCompassChargeRecipe(private val id: Identifier) : Cra
         if (otherStack.isEmpty) return ItemStack.EMPTY
         val registryEntry: Optional<ScanRegistry.RegistryEntry> =
             ScanRegistry.INSTANCE.getByChargingItem(otherStack.get().item)
-        if (registryEntry.isEmpty()) return ItemStack.EMPTY
+        if (registryEntry.isEmpty) return ItemStack.EMPTY
         val newStack = compassStack.get().copy()
-        ResourceFinderCompass.addForScanning(newStack, registryEntry.get())
+
+        ResourceFinderCompassScanNbt.readNbt(newStack).add(registryEntry.get(), 100).writeNbt(newStack)
+
         return newStack
     }
 

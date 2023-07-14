@@ -1,6 +1,7 @@
 package hellozyemlya.resourcefinder.items
 
 import hellozyemlya.resourcefinder.ResourceFinder
+import hellozyemlya.resourcefinder.items.nbt.ResourceFinderCompassTargetsNbt
 import hellozyemlya.resourcefinder.mixin.client.render.BakedItemModelRenderer
 import hellozyemlya.resourcefinder.render.HeldItemRenderer
 import net.minecraft.client.MinecraftClient
@@ -65,8 +66,9 @@ class ResourceFinderCompassRenderer : HeldItemRenderer {
         vertices: VertexConsumer
     ) {
         val arrowModel = getArrowModel(seed)
-        val offset = intArrayOf(0)
-        ResourceFinderCompass.forEachTarget(stack) { entry, pos ->
+        var offset = 0.0
+
+        ResourceFinderCompassTargetsNbt.readNbt(stack).forEach { entry, pos ->
             val arrowItemStack = getArrowStackFromColor(entry.color)
 
             // calculate rotation angle
@@ -75,7 +77,7 @@ class ResourceFinderCompassRenderer : HeldItemRenderer {
             val a = (0.5 - (e - 0.25 - d)).toFloat()
             matrices.push()
             // rotate matrix for arrow model
-            matrices.translate(0.5, 0.5 + offset[0] * 0.01, 0.5)
+            matrices.translate(0.5, 0.5 + offset, 0.5)
             matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180f))
             matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-(360 * a)))
             matrices.translate(-0.5, -0.5, -0.5)
@@ -83,7 +85,7 @@ class ResourceFinderCompassRenderer : HeldItemRenderer {
             // render arrow model
             renderer.renderBakedModel(arrowModel, arrowItemStack, light, overlay, matrices, vertices)
             matrices.pop()
-            offset[0] += 1
+            offset += 0.01
         }
     }
 }
