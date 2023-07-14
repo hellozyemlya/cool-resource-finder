@@ -3,7 +3,9 @@
 	"package": "hellozyemlya.resourcefinder.mixin.client",
 	"compatibilityLevel": "JAVA_17",
 	"client": [
-		"ExampleClientMixin"
+		"ExampleClientMixin",
+		"render.BakedItemModelRenderer",
+		"render.ItemRendererMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
