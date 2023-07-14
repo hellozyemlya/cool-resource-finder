@@ -1,11 +1,12 @@
 package hellozyemlya.resourcefinder.items
 
-import hellozyemlya.resourcefinder.items.nbt.ResourceFinderCompassScanNbt
-import hellozyemlya.resourcefinder.items.nbt.ResourceFinderCompassTargetsNbt
+import hellozyemlya.resourcefinder.ResourceFinder
+import hellozyemlya.resourcefinder.ScanRegistry
 import net.minecraft.client.item.TooltipContext
 import net.minecraft.entity.Entity
 import net.minecraft.item.Item
 import net.minecraft.item.ItemStack
+import net.minecraft.nbt.NbtCompound
 import net.minecraft.text.Style
 import net.minecraft.text.Text
 import net.minecraft.text.TextColor
@@ -13,14 +14,17 @@ import net.minecraft.text.Texts
 import net.minecraft.util.math.BlockPos
 import net.minecraft.world.World
 
+private const val SCAN_NBT_KEY = "resource_finder_compass.scan_for"
+private const val POSITIONS_NBT_KEY = "resource_finder_compass.target_pos"
+
 class ResourceFinderCompass(settings: Settings) : Item(settings) {
 
     override fun appendTooltip(stack: ItemStack, world: World?, tooltip: MutableList<Text?>, context: TooltipContext?) {
-        ResourceFinderCompassScanNbt.readNbt(stack).forEach { what, _ ->
+        ScanNbt(stack).forEach { scanEntry ->
             tooltip.add(
                 Texts.setStyleIfAbsent(
-                    what.resource.name.copyContentOnly(),
-                    Style.EMPTY.withColor(TextColor.fromRgb(what.color))
+                    scanEntry.entry.resource.name.copyContentOnly(),
+                    Style.EMPTY.withColor(TextColor.fromRgb(scanEntry.entry.color))
                 )
             )
         }
@@ -34,17 +38,98 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
 
     companion object {
         private fun scan(itemStack: ItemStack, position: BlockPos, world: World) {
-            val scanNbt = ResourceFinderCompassScanNbt.readNbt(itemStack)
-            var targetsNbt = ResourceFinderCompassTargetsNbt.EMPTY
+            val scanNbt = ScanNbt(itemStack)
+            val targetsNbt = PositionNbt()
 
-            scanNbt.forEach { what, _ ->
-                val posCandidate = what.findClosest(16, position, world)
+            scanNbt.forEach { scanEntry ->
+                val posCandidate = scanEntry.entry.findClosest(16, position, world)
                 if (posCandidate.isPresent) {
-                    targetsNbt = targetsNbt.add(what, posCandidate.get())
+                    targetsNbt.add(PositionEntry(scanEntry.entry, posCandidate.get()))
                 }
             }
 
-            targetsNbt.writeNbt(itemStack)
+            targetsNbt.write(itemStack)
+        }
+    }
+
+
+    abstract class NbtArray<T>() : ArrayList<T>() {
+        constructor(stack: ItemStack) : this() {
+            require(stack.item == ResourceFinder.RESOURCE_FINDER_ITEM)
+            this.read(stack.orCreateNbt)
+        }
+
+        protected abstract fun read(nbt: NbtCompound)
+
+        fun write(stack: ItemStack) {
+            require(stack.item == ResourceFinder.RESOURCE_FINDER_ITEM)
+            writeImpl(stack)
+        }
+
+        protected abstract fun writeImpl(stack: ItemStack)
+    }
+
+    data class ScanEntry(val entry: ScanRegistry.RegistryEntry, var lifetime: Int)
+    class ScanNbt : NbtArray<ScanEntry> {
+        constructor() : super()
+        constructor(stack: ItemStack) : super(stack)
+
+
+        override fun read(nbt: NbtCompound) {
+            if (nbt.contains(SCAN_NBT_KEY)) {
+                val data = nbt.getIntArray(SCAN_NBT_KEY)
+                for (i in 0 until data.size / 2) {
+                    add(ScanEntry(ScanRegistry.INSTANCE.getByIndex(data[i * 2])!!, data[i * 2 + 1]))
+                }
+            }
+
+        }
+
+        override fun writeImpl(stack: ItemStack) {
+            val data = IntArray(size * 2)
+            for (i in indices) {
+                val entry = this[i]
+                data[i * 2] = entry.entry.index
+                data[i * 2 + 1] = entry.lifetime
+            }
+
+            stack.orCreateNbt.putIntArray(SCAN_NBT_KEY, data)
+        }
+    }
+
+    data class PositionEntry(val entry: ScanRegistry.RegistryEntry, var position: BlockPos)
+
+
+    class PositionNbt : NbtArray<PositionEntry> {
+        constructor() : super()
+        constructor(stack: ItemStack) : super(stack)
+
+        override fun read(nbt: NbtCompound) {
+            if (nbt.contains(POSITIONS_NBT_KEY)) {
+                val data = nbt.getIntArray(POSITIONS_NBT_KEY)
+                for (i in 0 until data.size / 4) {
+                    add(
+                        PositionEntry(
+                            ScanRegistry.INSTANCE.getByIndex(data[i * 4])!!,
+                            BlockPos(data[i * 4 + 1], data[i * 4 + 2], data[i * 4 + 3])
+                        )
+                    )
+                }
+            }
+
+        }
+
+        override fun writeImpl(stack: ItemStack) {
+            val data = IntArray(size * 4)
+            for (i in indices) {
+                val entry = this[i]
+                data[i * 4] = entry.entry.index
+                data[i * 4 + 1] = entry.position.x
+                data[i * 4 + 2] = entry.position.y
+                data[i * 4 + 3] = entry.position.z
+            }
+
+            stack.orCreateNbt.putIntArray(POSITIONS_NBT_KEY, data)
         }
     }
 }

@@ -1,7 +1,6 @@
 package hellozyemlya.resourcefinder.items
 
 import hellozyemlya.resourcefinder.ResourceFinder
-import hellozyemlya.resourcefinder.items.nbt.ResourceFinderCompassTargetsNbt
 import hellozyemlya.resourcefinder.mixin.client.render.BakedItemModelRenderer
 import hellozyemlya.resourcefinder.render.HeldItemRenderer
 import net.minecraft.client.MinecraftClient
@@ -68,11 +67,11 @@ class ResourceFinderCompassRenderer : HeldItemRenderer {
         val arrowModel = getArrowModel(seed)
         var offset = 0.0
 
-        ResourceFinderCompassTargetsNbt.readNbt(stack).forEach { entry, pos ->
-            val arrowItemStack = getArrowStackFromColor(entry.color)
+        ResourceFinderCompass.PositionNbt(stack).forEach { position ->
+            val arrowItemStack = getArrowStackFromColor(position.entry.color)
 
             // calculate rotation angle
-            val d = getAngleTo(entity, pos)
+            val d = getAngleTo(entity, position.position)
             val e = getBodyYaw(entity)
             val a = (0.5 - (e - 0.25 - d)).toFloat()
             matrices.push()
