@@ -4,6 +4,7 @@ import hellozyemlya.resourcefinder.ResourceFinder
 import hellozyemlya.resourcefinder.ResourceRegistry
 import net.minecraft.client.item.TooltipContext
 import net.minecraft.entity.Entity
+import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.item.Item
 import net.minecraft.item.ItemStack
 import net.minecraft.nbt.NbtCompound
@@ -11,15 +12,26 @@ import net.minecraft.text.Style
 import net.minecraft.text.Text
 import net.minecraft.text.TextColor
 import net.minecraft.text.Texts
+import net.minecraft.util.Hand
 import net.minecraft.util.StringHelper
 import net.minecraft.util.math.BlockPos
 import net.minecraft.world.World
+import org.slf4j.LoggerFactory
 
 private const val SCAN_NBT_KEY = "resource_finder_compass.scan_for"
 private const val POSITIONS_NBT_KEY = "resource_finder_compass.target_pos"
 
 class ResourceFinderCompass(settings: Settings) : Item(settings) {
+    public var clientInventoryTick: ((ItemStack?, World?, Entity, Int, Boolean) -> Unit)? = null
 
+    override fun allowNbtUpdateAnimation(
+        player: PlayerEntity?,
+        hand: Hand?,
+        oldStack: ItemStack?,
+        newStack: ItemStack?
+    ): Boolean {
+        return false
+    }
     override fun appendTooltip(stack: ItemStack, world: World?, tooltip: MutableList<Text?>, context: TooltipContext?) {
         ScanNbt(stack).forEach { scanEntry ->
             val blockName = Texts.setStyleIfAbsent(
@@ -39,14 +51,26 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
         }
     }
 
+
     override fun inventoryTick(stack: ItemStack?, world: World?, entity: Entity, slot: Int, selected: Boolean) {
         if (selected && stack != null && world != null) {
-            // decrease scan lifetime
-            val scanNbt = ScanNbt(stack)
-            scanNbt.removeIf { it.lifetime-- <= 0 }
-            scanNbt.write(stack)
-            // write scan data nbt
-            scan(stack, scanNbt, entity.blockPos, world)
+            // TODO move to server and send network packet with updated positions
+            if(!world.isClient && world.time % 20 == 0L) {
+                stack.orCreateNbt.putLong("hello.world", world.tickOrder)
+            }
+//            if (world.isClient) {
+//                // decrease scan lifetime
+//                val scanNbt = ScanNbt(stack)
+//                scanNbt.removeIf { it.lifetime-- <= 0 }
+//                scanNbt.write(stack)
+//                // write scan data nbt
+//                scan(stack, scanNbt, entity.blockPos, world)
+//            }
+
+            if(world.isClient) {
+                LoggerFactory.getLogger("cool-resource-finder").info(stack.orCreateNbt.getLong("hello.world").toString())
+                clientInventoryTick?.invoke(stack, world, entity, slot, selected)
+            }
         }
     }
 
