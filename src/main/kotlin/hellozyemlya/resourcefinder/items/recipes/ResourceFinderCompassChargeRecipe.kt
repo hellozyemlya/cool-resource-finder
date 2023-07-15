@@ -2,7 +2,7 @@ package hellozyemlya.resourcefinder.items.recipes
 
 import com.google.gson.JsonObject
 import hellozyemlya.resourcefinder.ResourceFinder
-import hellozyemlya.resourcefinder.ScanRegistry
+import hellozyemlya.resourcefinder.ResourceRegistry
 import hellozyemlya.resourcefinder.items.ResourceFinderCompass
 import net.minecraft.inventory.CraftingInventory
 import net.minecraft.item.ItemStack
@@ -29,9 +29,9 @@ class ResourceFinderCompassChargeRecipe(private val id: Identifier) : CraftingRe
             .filter { itemStack: ItemStack -> itemStack.item !== ResourceFinder.RESOURCE_FINDER_ITEM }
             .findFirst()
         if (otherStack.isEmpty) return false
-        val registryEntry: Optional<ScanRegistry.RegistryEntry> =
-            ScanRegistry.INSTANCE.getByChargingItem(otherStack.get().item)
-        return !registryEntry.isEmpty
+        val resourceEntry: Optional<ResourceRegistry.ResourceEntry> =
+            ResourceRegistry.INSTANCE.getByChargingItem(otherStack.get().item)
+        return !resourceEntry.isEmpty
     }
 
     override fun craft(inventory: CraftingInventory, registryManager: DynamicRegistryManager): ItemStack {
@@ -46,13 +46,14 @@ class ResourceFinderCompassChargeRecipe(private val id: Identifier) : CraftingRe
             .filter { itemStack: ItemStack -> itemStack.item !== ResourceFinder.RESOURCE_FINDER_ITEM }
             .findFirst()
         if (otherStack.isEmpty) return ItemStack.EMPTY
-        val registryEntry: Optional<ScanRegistry.RegistryEntry> =
-            ScanRegistry.INSTANCE.getByChargingItem(otherStack.get().item)
-        if (registryEntry.isEmpty) return ItemStack.EMPTY
+        val resourceEntry: Optional<ResourceRegistry.ResourceEntry> =
+            ResourceRegistry.INSTANCE.getByChargingItem(otherStack.get().item)
+        if (resourceEntry.isEmpty) return ItemStack.EMPTY
         val newStack = compassStack.get().copy()
 
         val scanNbt = ResourceFinderCompass.ScanNbt(newStack)
-        scanNbt.add(ResourceFinderCompass.ScanEntry(registryEntry.get(), 100))
+        val scanEntry = scanNbt.createOrGetEntryFor(resourceEntry.get())
+        scanEntry.lifetime += resourceEntry.get().getChargeTicks(otherStack.get().item)
         scanNbt.write(newStack)
 
         return newStack

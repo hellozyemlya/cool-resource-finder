@@ -1,7 +1,7 @@
 package hellozyemlya.resourcefinder.items
 
 import hellozyemlya.resourcefinder.ResourceFinder
-import hellozyemlya.resourcefinder.ScanRegistry
+import hellozyemlya.resourcefinder.ResourceRegistry
 import net.minecraft.client.item.TooltipContext
 import net.minecraft.entity.Entity
 import net.minecraft.item.Item
@@ -23,7 +23,7 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
     override fun appendTooltip(stack: ItemStack, world: World?, tooltip: MutableList<Text?>, context: TooltipContext?) {
         ScanNbt(stack).forEach { scanEntry ->
             val blockName = Texts.setStyleIfAbsent(
-                scanEntry.entry.resource.name.copyContentOnly(),
+                scanEntry.entry.displayItem.name.copyContentOnly(),
                 Style.EMPTY.withColor(TextColor.fromRgb(scanEntry.entry.color))
             )
             tooltip.add(
@@ -33,20 +33,25 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
                         blockName,
                         Text.of("for"),
                         Text.of(StringHelper.formatTicks(scanEntry.lifetime))
-                    ), Text.of(" "))
+                    ), Text.of(" ")
+                )
             )
         }
     }
 
     override fun inventoryTick(stack: ItemStack?, world: World?, entity: Entity, slot: Int, selected: Boolean) {
         if (selected && stack != null && world != null) {
-            scan(stack, entity.blockPos, world)
+            // decrease scan lifetime
+            val scanNbt = ScanNbt(stack)
+            scanNbt.removeIf { it.lifetime-- <= 0 }
+            scanNbt.write(stack)
+            // write scan data nbt
+            scan(stack, scanNbt, entity.blockPos, world)
         }
     }
 
     companion object {
-        private fun scan(itemStack: ItemStack, position: BlockPos, world: World) {
-            val scanNbt = ScanNbt(itemStack)
+        private fun scan(itemStack: ItemStack, scanNbt: ScanNbt, position: BlockPos, world: World) {
             val targetsNbt = PositionNbt()
 
             scanNbt.forEach { scanEntry ->
@@ -77,15 +82,23 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
         protected abstract fun writeImpl(stack: ItemStack)
     }
 
-    data class ScanEntry(val entry: ScanRegistry.RegistryEntry, var lifetime: Int)
+    data class ScanEntry(val entry: ResourceRegistry.ResourceEntry, var lifetime: Int)
     class ScanNbt(stack: ItemStack) : NbtArray<ScanEntry>(stack) {
+        fun createOrGetEntryFor(resourceEntry: ResourceRegistry.ResourceEntry): ScanEntry {
+            var scanEntry: ScanEntry? = firstOrNull { it.entry == resourceEntry }
+            if (scanEntry == null) {
+                scanEntry = ScanEntry(resourceEntry, 0)
+            }
+            add(scanEntry)
 
+            return scanEntry
+        }
 
         override fun read(nbt: NbtCompound) {
             if (nbt.contains(SCAN_NBT_KEY)) {
                 val data = nbt.getIntArray(SCAN_NBT_KEY)
                 for (i in 0 until data.size / 2) {
-                    add(ScanEntry(ScanRegistry.INSTANCE.getByIndex(data[i * 2])!!, data[i * 2 + 1]))
+                    add(ScanEntry(ResourceRegistry.INSTANCE.getByIndex(data[i * 2])!!, data[i * 2 + 1]))
                 }
             }
 
@@ -103,7 +116,7 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
         }
     }
 
-    data class PositionEntry(val entry: ScanRegistry.RegistryEntry, var position: BlockPos)
+    data class PositionEntry(val entry: ResourceRegistry.ResourceEntry, var position: BlockPos)
 
 
     class PositionNbt : NbtArray<PositionEntry> {
@@ -116,7 +129,7 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
                 for (i in 0 until data.size / 4) {
                     add(
                         PositionEntry(
-                            ScanRegistry.INSTANCE.getByIndex(data[i * 4])!!,
+                            ResourceRegistry.INSTANCE.getByIndex(data[i * 4])!!,
                             BlockPos(data[i * 4 + 1], data[i * 4 + 2], data[i * 4 + 3])
                         )
                     )
