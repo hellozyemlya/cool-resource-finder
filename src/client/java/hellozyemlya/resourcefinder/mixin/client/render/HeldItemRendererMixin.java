@@ -21,9 +21,9 @@ public abstract class HeldItemRendererMixin {
     private void renderItemRedirect(ItemRenderer instance, LivingEntity entity, ItemStack item, ModelTransformationMode renderMode, boolean leftHanded, MatrixStack matrices, VertexConsumerProvider vertexConsumers, World world, int light, int overlay, int seed) {
         ClientItem clientItem = ((ItemHasClientItem)item.getItem()).getClientItem();
         if(clientItem != null) {
-            clientItem.setCurrentRenderType(ClientItem.RenderType.HELD);
+            clientItem.startHeldRender(entity, item, renderMode, leftHanded, matrices, vertexConsumers, light);
             clientItem.renderHeld(entity, item, renderMode, leftHanded, matrices, vertexConsumers, world, light, overlay, seed);
-            clientItem.setCurrentRenderType(ClientItem.RenderType.NO_RENDER);
+            clientItem.finishRender();
         } else {
             instance.renderItem(entity, item, renderMode, leftHanded, matrices, vertexConsumers, world, light, overlay, seed);
         }

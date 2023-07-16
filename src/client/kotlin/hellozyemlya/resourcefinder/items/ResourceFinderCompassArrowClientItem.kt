@@ -17,10 +17,22 @@ import net.minecraft.world.World
 import kotlin.math.atan2
 
 class ResourceFinderCompassArrowClientItem(item: Item) : ClientItem(item) {
-    override fun transformMatrices(stack: ItemStack, matrices: MatrixStack) {
-        val (resource, pos) = ResourceFinderCompassArrowItem.readArrowData(stack)
-        val angle = getArrowAngle(null!!, pos)
+    override fun transformHeldMatrices(entity: LivingEntity, stack: ItemStack, renderMode: ModelTransformationMode, leftHanded: Boolean, matrices: MatrixStack, light: Int) {
+        val (resource, pos, idx) = ResourceFinderCompassArrowItem.readArrowData(stack)
+        val angle = getArrowAngle(entity, pos)
 
+        matrices.translate(0.5, 0.5 + (idx * 0.01), 0.5)
+        matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(angle))
+        matrices.translate(-0.5, -0.5, -0.5)
+    }
+
+    override fun isOverrideModelColors(): Boolean {
+        return true
+    }
+
+
+    override fun getColor(stack: ItemStack): Int {
+        return super.getColor(stack)
     }
 
     companion object {

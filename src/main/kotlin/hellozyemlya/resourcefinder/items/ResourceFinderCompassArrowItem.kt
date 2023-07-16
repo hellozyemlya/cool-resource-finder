@@ -7,11 +7,11 @@ import net.minecraft.util.math.BlockPos
 
 class ResourceFinderCompassArrowItem(settings: Settings) : Item(settings) {
     companion object {
-        public fun readArrowData(stack: ItemStack): Pair<ResourceRegistry.ResourceEntry, BlockPos> {
+        public fun readArrowData(stack: ItemStack): Triple<ResourceRegistry.ResourceEntry, BlockPos, Int> {
             return null!!
         }
 
-        public fun writeArrowData(stack: ItemStack, resourceEntry: ResourceRegistry.ResourceEntry, pos: BlockPos) {
+        public fun writeArrowData(stack: ItemStack, resourceEntry: ResourceRegistry.ResourceEntry, pos: BlockPos, index: Int) {
 
         }
     }

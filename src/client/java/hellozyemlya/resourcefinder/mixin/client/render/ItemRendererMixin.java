@@ -2,6 +2,7 @@ package hellozyemlya.resourcefinder.mixin.client.render;
 
 import hellozyemlya.common.ClientItem;
 import hellozyemlya.common.ItemHasClientItem;
+import net.minecraft.client.color.item.ItemColors;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.item.ItemRenderer;
 import net.minecraft.client.render.model.BakedModel;
@@ -17,12 +18,20 @@ public abstract class ItemRendererMixin {
     @Shadow
     protected abstract void renderBakedItemModel(BakedModel model, ItemStack stack, int light, int overlay, MatrixStack matrices, VertexConsumer vertices);
     @Redirect(method = "renderItem(Lnet/minecraft/item/ItemStack;Lnet/minecraft/client/render/model/json/ModelTransformationMode;ZLnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;IILnet/minecraft/client/render/model/BakedModel;)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/item/ItemRenderer;renderBakedItemModel(Lnet/minecraft/client/render/model/BakedModel;Lnet/minecraft/item/ItemStack;IILnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;)V"))
-    void renderBakedModelRedirect(ItemRenderer instance, BakedModel model, ItemStack stack, int light, int overlay, MatrixStack matrices, VertexConsumer vertices) {
+    private void renderBakedModelRedirect(ItemRenderer instance, BakedModel model, ItemStack stack, int light, int overlay, MatrixStack matrices, VertexConsumer vertices) {
         ClientItem clientItem = ((ItemHasClientItem)stack.getItem()).getClientItem();
         if(clientItem != null) {
-            clientItem.transformMatrices(stack, matrices);
+            clientItem.transformMatrices(matrices);
         }
         renderBakedItemModel(model, stack, light, overlay, matrices, vertices);
     }
 
+    @Redirect(method = "renderBakedItemQuads", at=@At(value = "INVOKE", target = "Lnet/minecraft/client/color/item/ItemColors;getColor(Lnet/minecraft/item/ItemStack;I)I"))
+    private int getColorRedirect(ItemColors instance, ItemStack item, int tintIndex) {
+        ClientItem clientItem = ((ItemHasClientItem)item.getItem()).getClientItem();
+        if(clientItem != null && clientItem.isOverrideModelColors()) {
+            clientItem.getColor(item, tintIndex);
+        }
+        return instance.getColor(item, tintIndex);
+    }
 }
