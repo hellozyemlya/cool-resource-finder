@@ -87,6 +87,7 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
     }
 
     companion object {
+        public const val ARROWS_STACKS_KEY = "arrows"
         private fun scan(itemStack: ItemStack, scanNbt: ScanNbt, position: BlockPos, world: World) {
             val targetsNbt = PositionNbt()
 

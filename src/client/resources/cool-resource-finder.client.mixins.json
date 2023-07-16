@@ -5,12 +5,10 @@
   "client": [
     "ExampleClientMixin",
     "render.HeldItemRendererMixin",
-    "render.ItemRendererMixin"
+    "render.ItemRendererMixin",
+    "ItemMixin"
   ],
   "injectors": {
     "defaultRequire": 1
-  },
-  "mixins": [
-    "ItemStackMixin"
-  ]
+  }
 }

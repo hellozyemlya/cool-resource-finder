@@ -1,12 +1,7 @@
 package hellozyemlya.resourcefinder.items
 
-import hellozyemlya.resourcefinder.ItemStackEx
-import hellozyemlya.resourcefinder.ItemStackPreRenderCallback
-import hellozyemlya.resourcefinder.MatrixModifier
 import hellozyemlya.resourcefinder.ResourceFinder
-import net.minecraft.client.util.math.MatrixStack
 import net.minecraft.entity.Entity
-import net.minecraft.item.Item
 import net.minecraft.item.ItemStack
 import net.minecraft.util.math.BlockPos
 import net.minecraft.util.math.MathHelper
