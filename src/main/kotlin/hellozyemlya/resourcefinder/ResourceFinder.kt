@@ -13,9 +13,11 @@ import net.minecraft.registry.Registries
 import net.minecraft.registry.Registry
 import net.minecraft.text.Text
 import net.minecraft.util.Identifier
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 object ResourceFinder : ModInitializer {
+    public val LOGGER: Logger = LoggerFactory.getLogger("cool-resource-finder")
     private const val MOD_NAMESPACE = "cool-resource-finder"
 
     val RESOURCE_FINDER_ITEM: ResourceFinderCompass = Registry.register(
@@ -32,7 +34,7 @@ object ResourceFinder : ModInitializer {
 		.displayName(Text.translatable("itemGroup.tutorial.test_group"))
         .build()
 
-    private val logger = LoggerFactory.getLogger("cool-resource-finder")
+
 
     override fun onInitialize() {
 		ItemGroupEvents.modifyEntriesEvent(RESOURCE_FINDER_GROUP)
@@ -41,6 +43,6 @@ object ResourceFinder : ModInitializer {
             Registries.RECIPE_SERIALIZER, ResourceFinderCompassChargeRecipe.Serializer.ID,
             ResourceFinderCompassChargeRecipe.Serializer.INSTANCE
         )
-        logger.info("Hello Fabric world!")
+        LOGGER.info("Hello Fabric world!")
     }
 }

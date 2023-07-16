@@ -85,7 +85,6 @@ class ResourceRegistry private constructor() {
             Items.COAL
         )
     }
-
     companion object {
         val INSTANCE = ResourceRegistry()
     }

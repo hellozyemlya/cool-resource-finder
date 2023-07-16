@@ -1,5 +1,6 @@
 package hellozyemlya.resourcefinder.items
 
+import hellozyemlya.common.getChildStacks
 import hellozyemlya.resourcefinder.ResourceFinder
 import hellozyemlya.resourcefinder.ResourceRegistry
 import net.minecraft.client.item.TooltipContext
@@ -15,6 +16,7 @@ import net.minecraft.text.Texts
 import net.minecraft.util.Hand
 import net.minecraft.util.StringHelper
 import net.minecraft.util.math.BlockPos
+import net.minecraft.util.math.RotationAxis
 import net.minecraft.world.World
 import org.slf4j.LoggerFactory
 
@@ -54,10 +56,6 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
 
     override fun inventoryTick(stack: ItemStack?, world: World?, entity: Entity, slot: Int, selected: Boolean) {
         if (selected && stack != null && world != null) {
-            // TODO move to server and send network packet with updated positions
-            if(!world.isClient && world.time % 20 == 0L) {
-                stack.orCreateNbt.putLong("hello.world", world.tickOrder)
-            }
 //            if (world.isClient) {
 //                // decrease scan lifetime
 //                val scanNbt = ScanNbt(stack)
@@ -68,8 +66,22 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
 //            }
 
             if(world.isClient) {
-                LoggerFactory.getLogger("cool-resource-finder").info(stack.orCreateNbt.getLong("hello.world").toString())
                 clientInventoryTick?.invoke(stack, world, entity, slot, selected)
+
+
+                stack.getChildStacks("arrows").forEach {
+                    ResourceFinder.LOGGER.info("Got child stacks from server what: ${it.orCreateNbt.getInt("what")} color: ${it.orCreateNbt.getInt("color")} ")
+                }
+
+            } else {
+                val arrows = stack.getChildStacks("arrows")
+                arrows.clear()
+                PositionNbt(stack).forEachIndexed { idx, positionEntry ->
+                    val arrowItemStack = ResourceFinder.RESOURCE_FINDER_ARROW_ITEM.defaultStack
+                    arrowItemStack.orCreateNbt.putInt("what", positionEntry.entry.index)
+                    arrowItemStack.orCreateNbt.putInt("color", positionEntry.entry.color)
+                    arrows.add(arrowItemStack)
+                }
             }
         }
     }
