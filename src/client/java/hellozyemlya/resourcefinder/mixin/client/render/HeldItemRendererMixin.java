@@ -21,7 +21,7 @@ public abstract class HeldItemRendererMixin {
         // TODO check if every argument is really not null
         ClientItem clientItem = ((ItemHasClientItem) stack.getItem()).getClientItem();
         if (clientItem != null) {
-            clientItem.afterHeldItemRenderer(entity, stack, renderMode, leftHanded, matrices, vertexConsumers, light);
+            clientItem.afterHeldItemRendered(entity, stack, renderMode, leftHanded, matrices, vertexConsumers, light);
         }
     }
 }
