@@ -18,33 +18,13 @@ fun ItemStack.toNbtCompound(): NbtCompound {
     return nbt
 }
 
-private class ItemStackList(private val stack: ItemStack, private val key: String) : AbstractMutableList<ItemStack>() {
-    private val nbtList: NbtList
-        get() {
-            return if(stack.orCreateNbt.contains(key)){
-                stack.orCreateNbt.getList(key, NbtElement.COMPOUND_TYPE.toInt())
-            } else {
-                val nbtList = NbtList()
-                stack.orCreateNbt.put(key, nbtList)
-                nbtList
-            }
-        }
-    override val size: Int
-        get() = nbtList.size
-
-    override fun add(index: Int, element: ItemStack) {
-        nbtList.add(index, element.toNbtCompound())
+private class ItemStackList(stack: ItemStack, key: String) : NbtCompoundListWrapper<ItemStack>(stack, key) {
+    override fun toCompound(element: ItemStack): NbtCompound {
+        return element.toNbtCompound()
     }
 
-    override fun get(index: Int): ItemStack {
-        return ItemStack.fromNbt(nbtList.getCompound(index))
+    override fun fromCompound(compound: NbtCompound): ItemStack {
+        return ItemStack.fromNbt(compound)
     }
 
-    override fun removeAt(index: Int): ItemStack {
-        return ItemStack.fromNbt(nbtList.removeAt(index) as NbtCompound)
-    }
-
-    override fun set(index: Int, element: ItemStack): ItemStack {
-        return ItemStack.fromNbt(nbtList.set(index, element.toNbtCompound()) as NbtCompound)
-    }
 }

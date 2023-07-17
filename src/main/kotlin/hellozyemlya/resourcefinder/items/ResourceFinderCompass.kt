@@ -33,10 +33,10 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
         return false
     }
     override fun appendTooltip(stack: ItemStack, world: World?, tooltip: MutableList<Text?>, context: TooltipContext?) {
-        ScanNbt(stack).forEach { scanEntry ->
+        stack.getScanList().forEach {
             val blockName = Texts.setStyleIfAbsent(
-                scanEntry.entry.displayItem.name.copyContentOnly(),
-                Style.EMPTY.withColor(TextColor.fromRgb(scanEntry.entry.color))
+                it.resourceEntry.displayItem.name.copyContentOnly(),
+                Style.EMPTY.withColor(TextColor.fromRgb(it.resourceEntry.color))
             )
             tooltip.add(
                 Texts.join(
@@ -44,7 +44,7 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
                         Text.of("Finds"),
                         blockName,
                         Text.of("for"),
-                        Text.of(StringHelper.formatTicks(scanEntry.lifetime))
+                        Text.of(StringHelper.formatTicks(it.entryLifetime))
                     ), Text.of(" ")
                 )
             )
@@ -62,19 +62,18 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
                 val arrows = stack.getChildStacks("arrows")
                 arrows.clear()
 
-                val scanNbt = ScanNbt(stack)
-                scanNbt.removeIf { it.lifetime-- <= 0 }
-                scanNbt.write(stack)
+                val scanList = stack.getScanList()
+                scanList.removeIf { it.entryLifetime-- <= 0 }
 
                 val position = entity.blockPos
 
                 var idx = 0
 
-                scanNbt.forEach {
-                    val posCandidate = it.entry.findClosest(16, position, world)
+                scanList.forEach {
+                    val posCandidate = it.resourceEntry.findClosest(16, position, world)
                     if (posCandidate.isPresent) {
                         val arrowItemStack = ResourceFinder.RESOURCE_FINDER_ARROW_ITEM.defaultStack
-                        arrowItemStack.arrowResource = it.entry
+                        arrowItemStack.arrowResource = it.resourceEntry
                         arrowItemStack.arrowTarget = posCandidate.get()
                         arrowItemStack.arrowIndex = idx
                         arrows.add(arrowItemStack)
@@ -87,53 +86,53 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
 
 
 
-    abstract class NbtArray<T>() : ArrayList<T>() {
-        constructor(stack: ItemStack) : this() {
-            require(stack.item == ResourceFinder.RESOURCE_FINDER_ITEM)
-            this.read(stack.orCreateNbt)
-        }
-
-        protected abstract fun read(nbt: NbtCompound)
-
-        fun write(stack: ItemStack) {
-            require(stack.item == ResourceFinder.RESOURCE_FINDER_ITEM)
-            writeImpl(stack)
-        }
-
-        protected abstract fun writeImpl(stack: ItemStack)
-    }
-
-    data class ScanEntry(val entry: ResourceRegistry.ResourceEntry, var lifetime: Int)
-    class ScanNbt(stack: ItemStack) : NbtArray<ScanEntry>(stack) {
-        fun createOrGetEntryFor(resourceEntry: ResourceRegistry.ResourceEntry): ScanEntry {
-            var scanEntry: ScanEntry? = firstOrNull { it.entry == resourceEntry }
-            if (scanEntry == null) {
-                scanEntry = ScanEntry(resourceEntry, 0)
-                add(scanEntry)
-            }
-
-            return scanEntry
-        }
-
-        override fun read(nbt: NbtCompound) {
-            if (nbt.contains(SCAN_NBT_KEY)) {
-                val data = nbt.getIntArray(SCAN_NBT_KEY)
-                for (i in 0 until data.size / 2) {
-                    add(ScanEntry(ResourceRegistry.INSTANCE.getByIndex(data[i * 2])!!, data[i * 2 + 1]))
-                }
-            }
-
-        }
-
-        override fun writeImpl(stack: ItemStack) {
-            val data = IntArray(size * 2)
-            for (i in indices) {
-                val entry = this[i]
-                data[i * 2] = entry.entry.index
-                data[i * 2 + 1] = entry.lifetime
-            }
-
-            stack.orCreateNbt.putIntArray(SCAN_NBT_KEY, data)
-        }
-    }
+//    abstract class NbtArray<T>() : ArrayList<T>() {
+//        constructor(stack: ItemStack) : this() {
+//            require(stack.item == ResourceFinder.RESOURCE_FINDER_ITEM)
+//            this.read(stack.orCreateNbt)
+//        }
+//
+//        protected abstract fun read(nbt: NbtCompound)
+//
+//        fun write(stack: ItemStack) {
+//            require(stack.item == ResourceFinder.RESOURCE_FINDER_ITEM)
+//            writeImpl(stack)
+//        }
+//
+//        protected abstract fun writeImpl(stack: ItemStack)
+//    }
+//
+//    data class ScanEntry(val entry: ResourceRegistry.ResourceEntry, var lifetime: Int)
+//    class ScanNbt(stack: ItemStack) : NbtArray<ScanEntry>(stack) {
+//        fun createOrGetEntryFor(resourceEntry: ResourceRegistry.ResourceEntry): ScanEntry {
+//            var scanEntry: ScanEntry? = firstOrNull { it.entry == resourceEntry }
+//            if (scanEntry == null) {
+//                scanEntry = ScanEntry(resourceEntry, 0)
+//                add(scanEntry)
+//            }
+//
+//            return scanEntry
+//        }
+//
+//        override fun read(nbt: NbtCompound) {
+//            if (nbt.contains(SCAN_NBT_KEY)) {
+//                val data = nbt.getIntArray(SCAN_NBT_KEY)
+//                for (i in 0 until data.size / 2) {
+//                    add(ScanEntry(ResourceRegistry.INSTANCE.getByIndex(data[i * 2])!!, data[i * 2 + 1]))
+//                }
+//            }
+//
+//        }
+//
+//        override fun writeImpl(stack: ItemStack) {
+//            val data = IntArray(size * 2)
+//            for (i in indices) {
+//                val entry = this[i]
+//                data[i * 2] = entry.entry.index
+//                data[i * 2 + 1] = entry.lifetime
+//            }
+//
+//            stack.orCreateNbt.putIntArray(SCAN_NBT_KEY, data)
+//        }
+//    }
 }

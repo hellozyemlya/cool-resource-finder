@@ -1,4 +1,4 @@
-@file:JvmName("ArrowItemStackExtensions")
+@file:JvmName("ResourceFinderCompassArrowStackExtensions")
 
 package hellozyemlya.resourcefinder.items
 

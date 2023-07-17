@@ -92,21 +92,21 @@ class ResourceRegistry private constructor() {
             0,
             0xff0000,
             listOf(Blocks.REDSTONE_ORE, Blocks.DEEPSLATE_REDSTONE_ORE),
-            listOf(ChargeItem(Items.REDSTONE_BLOCK, 12000)),
+            listOf(ChargeItem(Items.REDSTONE_BLOCK, 10800), ChargeItem(Items.REDSTONE, 1200)),
             Items.REDSTONE
         )
         addBlockGroup(
             1,
             0x1D969A,
             listOf(Blocks.DIAMOND_ORE, Blocks.DEEPSLATE_DIAMOND_ORE),
-            listOf(ChargeItem(Items.DIAMOND_BLOCK, 12000)),
+            listOf(ChargeItem(Items.DIAMOND_BLOCK, 10800), ChargeItem(Items.DIAMOND, 1200)),
             Items.DIAMOND
         )
         addBlockGroup(
             2,
             0x363636,
             listOf(Blocks.COAL_ORE, Blocks.DEEPSLATE_COAL_ORE),
-            listOf(ChargeItem(Items.COAL_BLOCK, 12000)),
+            listOf(ChargeItem(Items.COAL_BLOCK, 10800), ChargeItem(Items.COAL, 1200), ChargeItem(Items.CHARCOAL, 1200)),
             Items.COAL
         )
     }
