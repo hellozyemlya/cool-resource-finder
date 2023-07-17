@@ -24,8 +24,6 @@ private const val SCAN_NBT_KEY = "resource_finder_compass.scan_for"
 private const val POSITIONS_NBT_KEY = "resource_finder_compass.target_pos"
 
 class ResourceFinderCompass(settings: Settings) : Item(settings) {
-    public var clientInventoryTick: ((ItemStack?, World?, Entity, Int, Boolean) -> Unit)? = null
-
     override fun allowNbtUpdateAnimation(
         player: PlayerEntity?,
         hand: Hand?,
@@ -56,51 +54,37 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
 
     override fun inventoryTick(stack: ItemStack?, world: World?, entity: Entity, slot: Int, selected: Boolean) {
         if (selected && stack != null && world != null) {
-//            if (world.isClient) {
-//                // decrease scan lifetime
-//                val scanNbt = ScanNbt(stack)
-//                scanNbt.removeIf { it.lifetime-- <= 0 }
-//                scanNbt.write(stack)
-//                // write scan data nbt
-//                scan(stack, scanNbt, entity.blockPos, world)
-//            }
-
             if(world.isClient) {
-                clientInventoryTick?.invoke(stack, world, entity, slot, selected)
-
-
-                stack.getChildStacks("arrows").forEach {
-                    ResourceFinder.LOGGER.info("Got child stacks from server what: ${it.orCreateNbt.getInt("what")} color: ${it.orCreateNbt.getInt("color")} ")
-                }
-
+//                stack.getChildStacks("arrows").forEach {
+//                    ResourceFinder.LOGGER.info("Got child stacks from server what: ${it.orCreateNbt.getInt("what")} color: ${it.orCreateNbt.getInt("color")} ")
+//                }
             } else {
                 val arrows = stack.getChildStacks("arrows")
                 arrows.clear()
-                PositionNbt(stack).forEachIndexed { idx, positionEntry ->
-                    val arrowItemStack = ResourceFinder.RESOURCE_FINDER_ARROW_ITEM.defaultStack
-                    arrowItemStack.orCreateNbt.putInt("what", positionEntry.entry.index)
-                    arrowItemStack.orCreateNbt.putInt("color", positionEntry.entry.color)
-                    arrows.add(arrowItemStack)
+
+                val scanNbt = ScanNbt(stack)
+                scanNbt.removeIf { it.lifetime-- <= 0 }
+                scanNbt.write(stack)
+
+                val position = entity.blockPos
+
+                var idx = 0
+
+                scanNbt.forEach {
+                    val posCandidate = it.entry.findClosest(16, position, world)
+                    if (posCandidate.isPresent) {
+                        val arrowItemStack = ResourceFinder.RESOURCE_FINDER_ARROW_ITEM.defaultStack
+                        arrowItemStack.arrowResource = it.entry
+                        arrowItemStack.arrowTarget = posCandidate.get()
+                        arrowItemStack.arrowIndex = idx
+                        arrows.add(arrowItemStack)
+                        idx++
+                    }
                 }
             }
         }
     }
 
-    companion object {
-        public const val ARROWS_STACKS_KEY = "arrows"
-        private fun scan(itemStack: ItemStack, scanNbt: ScanNbt, position: BlockPos, world: World) {
-            val targetsNbt = PositionNbt()
-
-            scanNbt.forEach { scanEntry ->
-                val posCandidate = scanEntry.entry.findClosest(16, position, world)
-                if (posCandidate.isPresent) {
-                    targetsNbt.add(PositionEntry(scanEntry.entry, posCandidate.get()))
-                }
-            }
-
-            targetsNbt.write(itemStack)
-        }
-    }
 
 
     abstract class NbtArray<T>() : ArrayList<T>() {
@@ -150,42 +134,6 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
             }
 
             stack.orCreateNbt.putIntArray(SCAN_NBT_KEY, data)
-        }
-    }
-
-    data class PositionEntry(val entry: ResourceRegistry.ResourceEntry, var position: BlockPos)
-
-
-    class PositionNbt : NbtArray<PositionEntry> {
-        constructor() : super()
-        constructor(stack: ItemStack) : super(stack)
-
-        override fun read(nbt: NbtCompound) {
-            if (nbt.contains(POSITIONS_NBT_KEY)) {
-                val data = nbt.getIntArray(POSITIONS_NBT_KEY)
-                for (i in 0 until data.size / 4) {
-                    add(
-                        PositionEntry(
-                            ResourceRegistry.INSTANCE.getByIndex(data[i * 4])!!,
-                            BlockPos(data[i * 4 + 1], data[i * 4 + 2], data[i * 4 + 3])
-                        )
-                    )
-                }
-            }
-
-        }
-
-        override fun writeImpl(stack: ItemStack) {
-            val data = IntArray(size * 4)
-            for (i in indices) {
-                val entry = this[i]
-                data[i * 4] = entry.entry.index
-                data[i * 4 + 1] = entry.position.x
-                data[i * 4 + 2] = entry.position.y
-                data[i * 4 + 3] = entry.position.z
-            }
-
-            stack.orCreateNbt.putIntArray(POSITIONS_NBT_KEY, data)
         }
     }
 }

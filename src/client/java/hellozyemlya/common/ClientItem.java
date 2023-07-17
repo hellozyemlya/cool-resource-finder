@@ -2,6 +2,7 @@ package hellozyemlya.common;
 
 import hellozyemlya.common.render.args.HeldItemRenderArguments;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.model.json.ModelTransformationMode;
 import net.minecraft.client.util.math.MatrixStack;
@@ -14,6 +15,7 @@ import org.jetbrains.annotations.NotNull;
 public abstract class ClientItem {
     private enum RenderType {
         HELD,
+        GUI,
         NO_RENDER
     }
 
@@ -26,14 +28,21 @@ public abstract class ClientItem {
 
     /**
      * Called instead of {@link net.minecraft.client.render.item.HeldItemRenderer#renderItem(
-     *net.minecraft.entity.LivingEntity, net.minecraft.item.ItemStack,
+     * net.minecraft.entity.LivingEntity, net.minecraft.item.ItemStack,
      * net.minecraft.client.render.model.json.ModelTransformationMode, boolean,
      * net.minecraft.client.util.math.MatrixStack, net.minecraft.client.render.VertexConsumerProvider, int) renderItem}
-     * when engine requires to render itemStack in hand. Default implementation calls {@link #vanillaRenderHeld(LivingEntity,
-     * ItemStack, ModelTransformationMode, boolean, MatrixStack, VertexConsumerProvider, int) vanillaRenderHeld}.
+     * when engine requires to render itemStack in hand. Default implementation render item in same way as vanilla
+     * method.
+     * @param entity
+     * @param stack
+     * @param renderMode
+     * @param leftHanded
+     * @param matrices
+     * @param vertexConsumers
+     * @param light
      */
-    public void renderHeld(@NotNull LivingEntity entity, @NotNull ItemStack itemStack, @NotNull ModelTransformationMode renderMode, boolean leftHanded, @NotNull MatrixStack matrices, @NotNull VertexConsumerProvider vertexConsumers, @NotNull World world, int light, int overlay, int seed) {
-        MinecraftClient.getInstance().getItemRenderer().renderItem(entity, itemStack, renderMode, leftHanded, matrices, vertexConsumers, world, light, overlay, seed);
+    public void renderHeld(@NotNull LivingEntity entity, @NotNull ItemStack stack, @NotNull ModelTransformationMode renderMode, boolean leftHanded, @NotNull MatrixStack matrices, @NotNull VertexConsumerProvider vertexConsumers, int light) {
+        MinecraftClient.getInstance().getItemRenderer().renderItem(entity, stack, renderMode, leftHanded, matrices, vertexConsumers, entity.world, light, OverlayTexture.DEFAULT_UV, entity.getId() + renderMode.ordinal());
     }
 
     /**
@@ -46,6 +55,9 @@ public abstract class ClientItem {
         switch (currentRender) {
             case HELD -> {
                 transformHeldMatrices(heldRenderArgs.entity, heldRenderArgs.stack, heldRenderArgs.renderMode, heldRenderArgs.leftHanded, matrices, heldRenderArgs.light);
+            }
+            case GUI -> {
+
             }
             default -> {
                 throw new IllegalStateException("Expected pending render");
@@ -63,7 +75,7 @@ public abstract class ClientItem {
      * <p>
      * Must return hex color, for example 0xffffff for white color.
      *
-     * @param stack item stack to get color for
+     * @param stack      item stack to get color for
      * @param colorIndex color index from baked model
      * @return color
      */
@@ -73,11 +85,13 @@ public abstract class ClientItem {
 
     /**
      * Indicates if this item must override its model color.
+     *
      * @return true, if color must be overridden
      */
     public boolean isOverrideModelColors() {
         return false;
     }
+
     protected void inventoryTick() {
 
     }
@@ -88,15 +102,20 @@ public abstract class ClientItem {
         heldRenderArgs.populate(entity, stack, renderMode, leftHanded, matrices, vertexConsumers, light);
     }
 
+    public final void startGuiRender() {
+        ensureNoRender();
+        currentRender = RenderType.GUI;
+    }
+
     public final void finishRender() {
-        if(currentRender == RenderType.NO_RENDER) {
+        if (currentRender == RenderType.NO_RENDER) {
             throw new IllegalStateException("Expected pending render");
         }
         currentRender = RenderType.NO_RENDER;
     }
 
     private final void ensureNoRender() {
-        if(currentRender != RenderType.NO_RENDER) {
+        if (currentRender != RenderType.NO_RENDER) {
             throw new IllegalStateException("No pending render expected");
         }
     }

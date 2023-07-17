@@ -11,7 +11,9 @@ import net.minecraft.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ItemRenderer.class)
 public abstract class ItemRendererMixin {
@@ -30,8 +32,25 @@ public abstract class ItemRendererMixin {
     private int getColorRedirect(ItemColors instance, ItemStack item, int tintIndex) {
         ClientItem clientItem = ((ItemHasClientItem)item.getItem()).getClientItem();
         if(clientItem != null && clientItem.isOverrideModelColors()) {
-            clientItem.getColor(item, tintIndex);
+            return clientItem.getColor(item, tintIndex);
         }
         return instance.getColor(item, tintIndex);
+    }
+
+
+    @Inject(method = "renderGuiItemModel", at=@At(value = "INVOKE", target = "Lnet/minecraft/client/render/item/ItemRenderer;renderItem(Lnet/minecraft/item/ItemStack;Lnet/minecraft/client/render/model/json/ModelTransformationMode;ZLnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;IILnet/minecraft/client/render/model/BakedModel;)V"))
+    private void onBeforeGuiItemRender(MatrixStack matrices, ItemStack stack, int x, int y, BakedModel model, CallbackInfo ci) {
+        ClientItem clientItem = ((ItemHasClientItem)stack.getItem()).getClientItem();
+        if(clientItem != null) {
+            clientItem.startGuiRender();
+        }
+    }
+
+    @Inject(method = "renderGuiItemModel", at=@At(value = "INVOKE", target = "Lnet/minecraft/client/render/item/ItemRenderer;renderItem(Lnet/minecraft/item/ItemStack;Lnet/minecraft/client/render/model/json/ModelTransformationMode;ZLnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;IILnet/minecraft/client/render/model/BakedModel;)V", shift = At.Shift.AFTER))
+    private void onAfterGuiItemRender(MatrixStack matrices, ItemStack stack, int x, int y, BakedModel model, CallbackInfo ci) {
+        ClientItem clientItem = ((ItemHasClientItem)stack.getItem()).getClientItem();
+        if(clientItem != null) {
+            clientItem.finishRender();
+        }
     }
 }

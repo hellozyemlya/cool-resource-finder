@@ -2,6 +2,7 @@ package hellozyemlya.resourcefinder.items
 
 import hellozyemlya.common.ClientItem
 import hellozyemlya.common.getChildStacks
+import net.minecraft.client.MinecraftClient
 import net.minecraft.client.render.VertexConsumerProvider
 import net.minecraft.client.render.model.json.ModelTransformationMode
 import net.minecraft.client.util.math.MatrixStack
@@ -12,11 +13,22 @@ import net.minecraft.world.World
 
 class ResourceFinderCompassClientItem(item: Item) : ClientItem(item) {
 
-    override fun renderHeld(entity: LivingEntity, itemStack: ItemStack, renderMode: ModelTransformationMode, leftHanded: Boolean, matrices: MatrixStack, vertexConsumers: VertexConsumerProvider, world: World, light: Int, overlay: Int, seed: Int) {
-        super.renderHeld(entity, itemStack, renderMode, leftHanded, matrices, vertexConsumers, world, light, overlay, seed)
-        itemStack.getChildStacks(ResourceFinderCompass.ARROWS_STACKS_KEY).forEach {
-            arrowItemStack ->
-            // TODO render arrows itemStack stacks
+    override fun renderHeld(
+        entity: LivingEntity,
+        stack: ItemStack,
+        renderMode: ModelTransformationMode,
+        leftHanded: Boolean,
+        matrices: MatrixStack,
+        vertexConsumers: VertexConsumerProvider,
+        light: Int
+    ) {
+        super.renderHeld(entity, stack, renderMode, leftHanded, matrices, vertexConsumers, light)
+        stack.getChildStacks("arrows").forEach {
+            MinecraftClient
+                .getInstance()
+                .entityRenderDispatcher
+                .heldItemRenderer
+                .renderItem(entity, it, renderMode, leftHanded, matrices, vertexConsumers, light)
         }
     }
 }

@@ -18,7 +18,8 @@ import kotlin.math.atan2
 
 class ResourceFinderCompassArrowClientItem(item: Item) : ClientItem(item) {
     override fun transformHeldMatrices(entity: LivingEntity, stack: ItemStack, renderMode: ModelTransformationMode, leftHanded: Boolean, matrices: MatrixStack, light: Int) {
-        val (resource, pos, idx) = ResourceFinderCompassArrowItem.readArrowData(stack)
+        val pos = stack.arrowTarget
+        val idx = stack.arrowIndex
         val angle = getArrowAngle(entity, pos)
 
         matrices.translate(0.5, 0.5 + (idx * 0.01), 0.5)
@@ -31,8 +32,8 @@ class ResourceFinderCompassArrowClientItem(item: Item) : ClientItem(item) {
     }
 
 
-    override fun getColor(stack: ItemStack): Int {
-        return super.getColor(stack)
+    override fun getColor(stack: ItemStack, colorIndex: Int): Int {
+        return stack.arrowResource.color
     }
 
     companion object {
