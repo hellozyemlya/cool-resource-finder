@@ -6,6 +6,7 @@
     "ExampleClientMixin",
     "ItemMixin",
     "render.BakedModelMixin",
+    "render.HeldItemRendererMixin",
     "render.ItemRendererMixin"
   ],
   "injectors": {

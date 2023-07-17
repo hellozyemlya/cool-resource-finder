@@ -24,61 +24,46 @@ import org.slf4j.LoggerFactory
 import kotlin.math.atan2
 
 class ResourceFinderCompassClientItem(item: Item) : ClientItem(item) {
-    public val LOGGER: Logger = LoggerFactory.getLogger("cool-resource-finder")
-
-    val arrowModel: BakedModel by lazy {
-        MinecraftClient.getInstance().bakedModelManager.getModel(ResourceFinderClient.ARROW_MODEL_ID)
+    private val arrowModel: BakedModel by lazy {
+        MinecraftClient.getInstance().itemRenderer.getModel(
+            ResourceFinder.RESOURCE_FINDER_ARROW_ITEM.defaultStack,
+            null,
+            null,
+            0
+        )
     }
 
-    override fun afterItemRendered(
+    private val arrowStack: ItemStack by lazy {
+        ResourceFinder.RESOURCE_FINDER_ARROW_ITEM.defaultStack
+    }
+
+    override fun afterHeldItemRenderer(
+        entity: LivingEntity,
         stack: ItemStack,
         renderMode: ModelTransformationMode,
         leftHanded: Boolean,
         matrices: MatrixStack,
         vertexConsumers: VertexConsumerProvider,
-        light: Int,
-        overlay: Int,
-        model: BakedModel
+        light: Int
     ) {
-        val player = MinecraftClient.getInstance().player
-        if(player != null) {
-            val mainHandStack = player.mainHandStack
-            val offHandStack = player.offHandStack
-            LOGGER.info("BEGIN: $renderMode, $overlay, ${System.identityHashCode(stack)}")
-            if(mainHandStack != null)
-                LOGGER.info("main hand ${System.identityHashCode(mainHandStack)}")
-            if(offHandStack != null)
-                LOGGER.info("main hand ${System.identityHashCode(offHandStack)}")
-            if(offHandStack != null)
-                LOGGER.info("render stack ${System.identityHashCode(stack)}")
-            var rendered = false
-            if(mainHandStack === stack || offHandStack === stack) {
-                LOGGER.info(" ... rendering ${System.identityHashCode(stack)} rendering")
-                stack.getTargetList().forEachIndexed { idx, targetRecord ->
-
-                    val angle = getArrowAngle(player, targetRecord.target)
-                    (arrowModel as BakedModelEx).matrixTransform = MatrixTransform { matrixStack ->
-                        matrixStack.translate(0.5, 0.5 + (idx * 0.01), 0.5)
-                        matrixStack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(angle))
-                        matrixStack.translate(-0.5, -0.5, -0.5)
-                    }
-                    MinecraftClient
-                        .getInstance()
-                        .itemRenderer.renderItem(
-                            ResourceFinder.RESOURCE_FINDER_ARROW_ITEM.defaultStack,
-                            renderMode,
-                            leftHanded,
-                            matrices,
-                            vertexConsumers,
-                            light,
-                            overlay,
-                            arrowModel
-                        )
-                }
-                rendered = true
+        stack.getTargetList().forEachIndexed { idx, targetRecord ->
+            val angle = getArrowAngle(entity, targetRecord.target)
+            (arrowModel as BakedModelEx).matrixTransform = MatrixTransform { matrixStack ->
+                matrixStack.translate(0.5, 0.5 + (idx * 0.01), 0.5)
+                matrixStack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(angle))
+                matrixStack.translate(-0.5, -0.5, -0.5)
             }
-
-            LOGGER.info("END: $renderMode, $rendered, $overlay, ${System.identityHashCode(stack)}")
+            MinecraftClient
+                .getInstance()
+                .entityRenderDispatcher.heldItemRenderer.renderItem(
+                    entity,
+                    arrowStack,
+                    renderMode,
+                    leftHanded,
+                    matrices,
+                    vertexConsumers,
+                    light
+                )
         }
     }
 
