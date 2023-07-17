@@ -1,5 +1,6 @@
 package hellozyemlya.resourcefinder
 
+import com.mojang.authlib.minecraft.client.MinecraftClient
 import hellozyemlya.resourcefinder.items.ResourceFinderCompass
 import hellozyemlya.resourcefinder.items.recipes.ResourceFinderCompassChargeRecipe
 import net.fabricmc.api.ModInitializer
@@ -9,6 +10,7 @@ import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents
 import net.minecraft.item.Item
 import net.minecraft.item.ItemGroup
 import net.minecraft.item.ItemStack
+import net.minecraft.recipe.RecipeManager
 import net.minecraft.registry.Registries
 import net.minecraft.registry.Registry
 import net.minecraft.text.Text
@@ -18,7 +20,7 @@ import org.slf4j.LoggerFactory
 
 object ResourceFinder : ModInitializer {
     public val LOGGER: Logger = LoggerFactory.getLogger("cool-resource-finder")
-    private const val MOD_NAMESPACE = "cool-resource-finder"
+    public const val MOD_NAMESPACE = "cool-resource-finder"
 
     val RESOURCE_FINDER_ITEM: ResourceFinderCompass = Registry.register(
         Registries.ITEM, Identifier(MOD_NAMESPACE, "resource_finder_compass"),
@@ -39,10 +41,11 @@ object ResourceFinder : ModInitializer {
     override fun onInitialize() {
 		ItemGroupEvents.modifyEntriesEvent(RESOURCE_FINDER_GROUP)
 			.register { content -> content.add(RESOURCE_FINDER_ITEM) }
-        Registry.register(
-            Registries.RECIPE_SERIALIZER, ResourceFinderCompassChargeRecipe.Serializer.ID,
-            ResourceFinderCompassChargeRecipe.Serializer.INSTANCE
-        )
+//        Registry.register(
+//            Registries.RECIPE_SERIALIZER, ResourceFinderCompassChargeRecipe.Serializer.ID,
+//            ResourceFinderCompassChargeRecipe.Serializer.INSTANCE
+//        )
+
         LOGGER.info("Hello Fabric world!")
     }
 }

@@ -1,15 +1,21 @@
 package hellozyemlya.resourcefinder
 
+import hellozyemlya.resourcefinder.items.recipes.ResourceFinderCompassChargeRecipe
 import net.minecraft.block.Block
 import net.minecraft.block.Blocks
 import net.minecraft.item.Item
 import net.minecraft.item.Items
+import net.minecraft.recipe.Recipe
+import net.minecraft.registry.Registries
+import net.minecraft.util.Identifier
 import net.minecraft.util.math.BlockPos
 import net.minecraft.world.World
 import java.util.*
+import kotlin.collections.ArrayList
 
 class ResourceRegistry private constructor() {
     data class ChargeItem(val item: Item, val ticks: Int)
+
     @JvmRecord
     data class ResourceEntry(
         val index: Int,
@@ -62,6 +68,25 @@ class ResourceRegistry private constructor() {
         }.findFirst()
     }
 
+    fun getRechargeRecipes(): List<Recipe<*>> {
+        val result = ArrayList<Recipe<*>>()
+
+        resourceEntryMap.values.forEach { resourceEntry ->
+            resourceEntry.rechargeItems.forEach { chargeItem ->
+                result.add(
+                    ResourceFinderCompassChargeRecipe(
+                        Identifier(ResourceFinder.MOD_NAMESPACE, "compass_charge_${Registries.ITEM.getId(chargeItem.item).path}"),
+                        chargeItem.item,
+                        chargeItem.ticks,
+                        resourceEntry
+                    )
+                )
+            }
+        }
+
+        return result
+    }
+
     init {
         addBlockGroup(
             0,
@@ -85,6 +110,7 @@ class ResourceRegistry private constructor() {
             Items.COAL
         )
     }
+
     companion object {
         val INSTANCE = ResourceRegistry()
     }

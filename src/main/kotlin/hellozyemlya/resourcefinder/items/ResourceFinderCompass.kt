@@ -109,8 +109,8 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
             var scanEntry: ScanEntry? = firstOrNull { it.entry == resourceEntry }
             if (scanEntry == null) {
                 scanEntry = ScanEntry(resourceEntry, 0)
+                add(scanEntry)
             }
-            add(scanEntry)
 
             return scanEntry
         }
