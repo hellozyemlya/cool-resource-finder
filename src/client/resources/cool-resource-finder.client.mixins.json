@@ -4,9 +4,9 @@
   "compatibilityLevel": "JAVA_17",
   "client": [
     "ExampleClientMixin",
-    "render.HeldItemRendererMixin",
-    "render.ItemRendererMixin",
-    "ItemMixin"
+    "ItemMixin",
+    "render.BakedModelMixin",
+    "render.ItemRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 1

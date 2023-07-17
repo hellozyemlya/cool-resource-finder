@@ -2,7 +2,6 @@ package hellozyemlya.resourcefinder.items.recipes
 
 import hellozyemlya.resourcefinder.ResourceFinder
 import hellozyemlya.resourcefinder.ResourceRegistry
-import hellozyemlya.resourcefinder.items.ResourceFinderCompass
 import hellozyemlya.resourcefinder.items.ScanRecord
 import hellozyemlya.resourcefinder.items.getScanList
 import net.minecraft.inventory.CraftingInventory
