@@ -7,7 +7,7 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
 
-public class HeldItemRenderContext extends ItemRenderContext {
+public class HeldItemRenderCallContext implements ItemRenderCallContext {
     @NotNull
     private final LivingEntity entity;
     @NotNull
@@ -21,7 +21,7 @@ public class HeldItemRenderContext extends ItemRenderContext {
     private final VertexConsumerProvider vertexConsumers;
     private final int light;
 
-    public HeldItemRenderContext(@NotNull LivingEntity entity, @NotNull ItemStack stack, @NotNull ModelTransformationMode renderMode, boolean leftHanded, @NotNull MatrixStack matrices, @NotNull VertexConsumerProvider vertexConsumers, int light) {
+    public HeldItemRenderCallContext(@NotNull LivingEntity entity, @NotNull ItemStack stack, @NotNull ModelTransformationMode renderMode, boolean leftHanded, @NotNull MatrixStack matrices, @NotNull VertexConsumerProvider vertexConsumers, int light) {
         this.entity = entity;
         this.stack = stack;
         this.renderMode = renderMode;

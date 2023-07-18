@@ -7,7 +7,7 @@ import net.minecraft.world.World;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class GuiItemRenderContext extends ItemRenderContext {
+public class GuiItemRenderCallContext implements ItemRenderCallContext {
     @NotNull
     private final MatrixStack matrices;
     @Nullable
@@ -22,7 +22,7 @@ public class GuiItemRenderContext extends ItemRenderContext {
     private final int depth;
 
 
-    public GuiItemRenderContext(@NotNull MatrixStack matrices, @Nullable LivingEntity entity, @Nullable World world, @NotNull ItemStack stack, int x, int y, int seed, int depth) {
+    public GuiItemRenderCallContext(@NotNull MatrixStack matrices, @Nullable LivingEntity entity, @Nullable World world, @NotNull ItemStack stack, int x, int y, int seed, int depth) {
         this.matrices = matrices;
         this.entity = entity;
         this.world = world;

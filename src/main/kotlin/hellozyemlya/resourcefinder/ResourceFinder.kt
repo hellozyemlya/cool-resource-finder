@@ -29,7 +29,12 @@ object ResourceFinder : ModInitializer {
 
     val RESOURCE_FINDER_ARROW_ITEM: Item = Registry.register(
         Registries.ITEM, Identifier(MOD_NAMESPACE, "resource_finder_compass_arrow"),
-        Item(FabricItemSettings().maxCount(1))
+        Item(FabricItemSettings())
+    )
+
+    val RESOURCE_FINDER_BASE_ITEM: Item = Registry.register(
+        Registries.ITEM, Identifier(MOD_NAMESPACE, "resource_finder_compass_base"),
+        Item(FabricItemSettings())
     )
     private val RESOURCE_FINDER_GROUP: ItemGroup = FabricItemGroup.builder(Identifier(MOD_NAMESPACE, "resource_finder"))
         .icon { ItemStack(RESOURCE_FINDER_ITEM) }
