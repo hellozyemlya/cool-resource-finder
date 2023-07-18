@@ -14,6 +14,9 @@ import net.minecraft.util.StringHelper
 import net.minecraft.world.World
 
 class ResourceFinderCompass(settings: Settings) : Item(settings) {
+    companion object {
+        const val DEFAULT_SCAN_TIMEOUT = 10
+    }
     override fun allowNbtUpdateAnimation(
         player: PlayerEntity?,
         hand: Hand?,
@@ -51,15 +54,22 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
 
                 val position = entity.blockPos
 
-                val targetList = stack.getTargetList()
-                targetList.clear()
+                val currentScanTimeout = stack.scanTimeout--
 
-                scanList.forEach {
-                    val posCandidate = it.resourceEntry.findClosest(16, position, world)
-                    if (posCandidate.isPresent) {
-                        targetList.add(TargetRecord(it.resourceEntry, posCandidate.get()))
+                if(currentScanTimeout <= 0) {
+                    val targetList = stack.getTargetList()
+                    targetList.clear()
+
+                    scanList.forEach {
+                        val posCandidate = it.resourceEntry.findClosest(16, position, world)
+                        if (posCandidate.isPresent) {
+                            targetList.add(TargetRecord(it.resourceEntry, posCandidate.get()))
+                        }
                     }
+
+                    stack.scanTimeout = DEFAULT_SCAN_TIMEOUT
                 }
+
             }
         }
     }

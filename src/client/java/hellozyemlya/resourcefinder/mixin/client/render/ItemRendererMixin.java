@@ -1,6 +1,5 @@
 package hellozyemlya.resourcefinder.mixin.client.render;
 
-import hellozyemlya.common.GuiItemRenderer;
 import hellozyemlya.resourcefinder.render.GuiItemRenderCallContext;
 import hellozyemlya.resourcefinder.render.ItemRenderCallStack;
 import net.minecraft.client.render.item.ItemRenderer;
@@ -14,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ItemRenderer.class)
-public abstract class ItemRendererMixin implements GuiItemRenderer {
+public abstract class ItemRendererMixin {
 
     @Inject(method = "innerRenderInGui(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/entity/LivingEntity;Lnet/minecraft/world/World;Lnet/minecraft/item/ItemStack;IIII)V",
             at = @At(value = "HEAD"))

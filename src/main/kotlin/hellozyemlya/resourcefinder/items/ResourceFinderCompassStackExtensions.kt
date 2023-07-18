@@ -79,3 +79,19 @@ public fun ItemStack.getTargetList(): MutableList<TargetRecord> {
     this.requireIsCompass()
     return TargetRecordList(this, "target_list")
 }
+
+public var ItemStack.scanTimeout: Int
+    get() {
+        this.requireIsCompass()
+        val nbt = this.orCreateNbt
+        return if(nbt.contains("scan_timeout")) {
+            nbt.getInt("scan_timeout")
+        } else {
+            nbt.putInt("scan_timeout", ResourceFinderCompass.DEFAULT_SCAN_TIMEOUT)
+            ResourceFinderCompass.DEFAULT_SCAN_TIMEOUT
+        }
+    }
+    set(value) {
+        this.requireIsCompass()
+        this.orCreateNbt.putInt("scan_timeout", value)
+    }

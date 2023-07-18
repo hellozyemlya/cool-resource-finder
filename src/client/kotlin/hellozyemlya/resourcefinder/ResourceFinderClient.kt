@@ -131,7 +131,7 @@ object ResourceFinderClient : ClientModInitializer {
             ItemRenderCallStack.INSTANCE.requireTopmost()
             when (val ctx = ItemRenderCallStack.INSTANCE.peekTopContext()) {
                 is GuiItemRenderCallContext -> {
-                    val entity = ctx.entity
+                    val entity = ctx.entity()
                     if (entity != null) {
                         if (entity.mainHandStack === stack || entity.offHandStack === stack) {
                             renderArrowsOnEntity(entity, stack, matrices, vertexConsumers, light, overlay, renderer)
@@ -141,7 +141,7 @@ object ResourceFinderClient : ClientModInitializer {
                 }
 
                 is HeldItemRenderCallContext -> {
-                    renderArrowsOnEntity(ctx.entity, stack, matrices, vertexConsumers, light, overlay, renderer)
+                    renderArrowsOnEntity(ctx.entity(), stack, matrices, vertexConsumers, light, overlay, renderer)
                     return@register
                 }
             }
