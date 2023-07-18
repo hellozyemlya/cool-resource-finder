@@ -1,6 +1,8 @@
 package hellozyemlya.resourcefinder.mixin.client.render;
 
 import hellozyemlya.common.*;
+import hellozyemlya.resourcefinder.render.GuiItemRenderContext;
+import hellozyemlya.resourcefinder.render.ItemRenderContext;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.item.ItemRenderer;
 import net.minecraft.client.render.model.BakedModel;
@@ -47,5 +49,18 @@ public abstract class ItemRendererMixin implements GuiItemRenderer {
         if (matrixTransform != null) {
             matrixTransform.transform(matrices);
         }
+    }
+
+
+    @Inject(method = "innerRenderInGui(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/entity/LivingEntity;Lnet/minecraft/world/World;Lnet/minecraft/item/ItemStack;IIII)V",
+            at = @At(value = "HEAD"))
+    private void startGuiItemRenderContext(MatrixStack matrices, LivingEntity entity, World world, ItemStack stack, int x, int y, int seed, int depth, CallbackInfo ci) {
+        ItemRenderContext.withNewContext(new GuiItemRenderContext(matrices, entity, world, stack, x, y, seed, depth));
+    }
+
+    @Inject(method = "innerRenderInGui(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/entity/LivingEntity;Lnet/minecraft/world/World;Lnet/minecraft/item/ItemStack;IIII)V",
+            at = @At(value = "TAIL"))
+    private void finishGuiItemRenderContext(MatrixStack matrices, LivingEntity entity, World world, ItemStack stack, int x, int y, int seed, int depth, CallbackInfo ci) {
+        ItemRenderContext.<GuiItemRenderContext>finishContext();
     }
 }
