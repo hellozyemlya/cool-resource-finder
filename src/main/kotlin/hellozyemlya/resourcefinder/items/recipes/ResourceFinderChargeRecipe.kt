@@ -1,12 +1,11 @@
 package hellozyemlya.resourcefinder.items.recipes
 
 import hellozyemlya.resourcefinder.ResourceFinder
-import hellozyemlya.resourcefinder.ResourceRegistry
 import hellozyemlya.resourcefinder.items.ScanRecord
 import hellozyemlya.resourcefinder.items.getScanList
+import hellozyemlya.resourcefinder.registry.ResourceRegistry
 import net.minecraft.inventory.CraftingInventory
 import net.minecraft.item.ItemStack
-import net.minecraft.recipe.Ingredient
 import net.minecraft.recipe.RecipeSerializer
 import net.minecraft.recipe.SpecialCraftingRecipe
 import net.minecraft.recipe.book.CraftingRecipeCategory
@@ -14,12 +13,13 @@ import net.minecraft.registry.DynamicRegistryManager
 import net.minecraft.util.Identifier
 import net.minecraft.util.collection.DefaultedList
 import net.minecraft.world.World
+import java.lang.IllegalStateException
 
 class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategory) : SpecialCraftingRecipe(
     id,
     category
 ) {
-    fun extractItems(inventory: CraftingInventory): Pair<ItemStack?, ArrayList<ItemStack>> {
+    private fun getRecipeItems(inventory: CraftingInventory): Pair<ItemStack, ArrayList<ItemStack>> {
         var compass: ItemStack? = null
         val charges = ArrayList<ItemStack>()
 
@@ -34,36 +34,36 @@ class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategor
             }
         }
 
-        return Pair(compass, charges)
-    }
-
-    fun requireItems(inventory: CraftingInventory): Pair<ItemStack, ArrayList<ItemStack>> {
-        val result = extractItems(inventory)
-        if (result.first == null) {
+        if(compass == null || charges.isEmpty()) {
             throw IllegalStateException()
         }
 
-        return result as Pair<ItemStack, ArrayList<ItemStack>>
+        return Pair(compass, charges)
     }
 
     override fun matches(inventory: CraftingInventory, world: World?): Boolean {
-        val (compass, charges) = extractItems(inventory)
+        var hasCompass = false
+        var hasOtherResources = false
 
-        if (compass == null)
-            return false
-
-
-        charges.forEach { chargeCandidate ->
-            if(!ResourceRegistry.INSTANCE.itemCanCharge(chargeCandidate.item)) {
-                return false
+        for (i in 0 until inventory.size()) {
+            val curStack = inventory.getStack(i)
+            if (!curStack.isEmpty) {
+                if (curStack.isOf(ResourceFinder.RESOURCE_FINDER_ITEM)) {
+                    hasCompass = true
+                } else {
+                    if(!ResourceRegistry.INSTANCE.canBeChargedBy(curStack.item)) {
+                        return false
+                    }
+                    hasOtherResources = true
+                }
             }
         }
 
-        return true
+        return hasCompass && hasOtherResources
     }
 
     override fun craft(inventory: CraftingInventory, registryManager: DynamicRegistryManager?): ItemStack {
-        val (compass, charges) = requireItems(inventory)
+        val (compass, charges) = getRecipeItems(inventory)
 
         val result = compass.copy()
 
@@ -71,7 +71,12 @@ class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategor
 
         charges.forEach { chargeStack ->
             val chargeItem = chargeStack.item
-            val resourceEntry = ResourceRegistry.INSTANCE.getByChargingItem(chargeItem).get()
+            val resourceEntry = ResourceRegistry.INSTANCE.getByChargingItem(chargeItem)
+
+            requireNotNull(resourceEntry) {
+                "Must not be null"
+            }
+
             val chargeValue = resourceEntry.getChargeTicks(chargeItem) * chargeStack.count
             val existingEntry = result.getScanList().firstOrNull { it.resourceEntry.index == resourceEntry.index }
             if (existingEntry != null) {

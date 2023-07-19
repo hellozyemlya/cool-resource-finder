@@ -4,13 +4,14 @@ package hellozyemlya.resourcefinder.items
 
 import hellozyemlya.common.NbtCompoundListWrapper
 import hellozyemlya.resourcefinder.ResourceFinder
-import hellozyemlya.resourcefinder.ResourceRegistry
+import hellozyemlya.resourcefinder.registry.ResourceEntry
+import hellozyemlya.resourcefinder.registry.ResourceRegistry
 import net.minecraft.item.ItemStack
 import net.minecraft.nbt.NbtCompound
 import net.minecraft.util.math.BlockPos
 
 class ScanRecord(val compound: NbtCompound) {
-    public var resourceEntry: ResourceRegistry.ResourceEntry
+    public var resourceEntry: ResourceEntry
         get() = ResourceRegistry.INSTANCE.getByIndex(compound.getInt("what"))!!
         set(value) = compound.putInt("what", value.index)
 
@@ -18,7 +19,7 @@ class ScanRecord(val compound: NbtCompound) {
         get() = compound.getInt("lifetime")
         set(value) = compound.putInt("lifetime", value)
 
-    constructor(entry: ResourceRegistry.ResourceEntry, lifetime: Int) : this(NbtCompound()) {
+    constructor(entry: ResourceEntry, lifetime: Int) : this(NbtCompound()) {
         resourceEntry = entry
         entryLifetime = lifetime
     }
@@ -26,7 +27,7 @@ class ScanRecord(val compound: NbtCompound) {
 }
 
 class TargetRecord(val compound: NbtCompound) {
-    public var resourceEntry: ResourceRegistry.ResourceEntry
+    public var resourceEntry: ResourceEntry
         get() = ResourceRegistry.INSTANCE.getByIndex(compound.getInt("what"))!!
         set(value) = compound.putInt("what", value.index)
 
@@ -37,7 +38,7 @@ class TargetRecord(val compound: NbtCompound) {
         }
         set(value) = compound.putIntArray("position", intArrayOf(value.x, value.y, value.z))
 
-    constructor(entry: ResourceRegistry.ResourceEntry, target: BlockPos) : this(NbtCompound()) {
+    constructor(entry: ResourceEntry, target: BlockPos) : this(NbtCompound()) {
         resourceEntry = entry
         this.target = target
     }
