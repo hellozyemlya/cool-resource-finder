@@ -2,9 +2,6 @@ package hellozyemlya.resourcefinder
 
 import hellozyemlya.resourcefinder.items.getScanList
 import hellozyemlya.resourcefinder.items.getTargetList
-import hellozyemlya.resourcefinder.render.GuiItemRenderCallContext
-import hellozyemlya.resourcefinder.render.HeldItemRenderCallContext
-import hellozyemlya.resourcefinder.render.ItemRenderCallStack
 import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry
 import net.fabricmc.fabric.api.client.rendering.v1.ColorProviderRegistry
@@ -128,31 +125,48 @@ object ResourceFinderClient : ClientModInitializer {
                 null,
                 0
             )
-            ItemRenderCallStack.INSTANCE.requireTopmost()
-            when (val ctx = ItemRenderCallStack.INSTANCE.peekTopContext()) {
-                is GuiItemRenderCallContext -> {
-                    val entity = ctx.entity()
-                    if (entity != null) {
-                        if (entity.mainHandStack === stack || entity.offHandStack === stack) {
-                            renderArrowsOnEntity(entity, stack, matrices, vertexConsumers, light, overlay, renderer)
-                            return@register
-                        }
+
+            val renderEntities = ItemStackWithRenderLivingEntityList.getRenderLivingEntityList(stack)
+
+            if (renderEntities.isEmpty) {
+                renderArrowsPreview(stack, matrices, vertexConsumers, light, overlay, renderer)
+            } else {
+                val entity = renderEntities.top()
+                val renderWithEntity = when (mode) {
+                    ModelTransformationMode.FIRST_PERSON_RIGHT_HAND, ModelTransformationMode.FIRST_PERSON_LEFT_HAND, ModelTransformationMode.HEAD, ModelTransformationMode.THIRD_PERSON_LEFT_HAND, ModelTransformationMode.THIRD_PERSON_RIGHT_HAND -> {
+                        true
+                    }
+
+                    ModelTransformationMode.GUI -> {
+                        entity.mainHandStack === stack || entity.offHandStack === stack
+                    }
+
+                    else -> {
+                        false
                     }
                 }
 
-                is HeldItemRenderCallContext -> {
-                    renderArrowsOnEntity(ctx.entity(), stack, matrices, vertexConsumers, light, overlay, renderer)
-                    return@register
+                if (renderWithEntity) {
+                    renderArrowsOnEntity(
+                        renderEntities.top(),
+                        stack,
+                        matrices,
+                        vertexConsumers,
+                        light,
+                        overlay,
+                        renderer
+                    )
+                } else {
+                    renderArrowsPreview(stack, matrices, vertexConsumers, light, overlay, renderer)
                 }
             }
-
-
-            renderArrowsPreview(stack, matrices, vertexConsumers, light, overlay, renderer)
         }
 
         ColorProviderRegistry.ITEM.register(
             { stack, _ -> stack.orCreateNbt.getInt("color") },
             ResourceFinder.RESOURCE_FINDER_ARROW_ITEM
         )
+
+        TracksRenderLivingEntity.setTracksRenderLivingEntity(ResourceFinder.RESOURCE_FINDER_ITEM, true)
     }
 }
