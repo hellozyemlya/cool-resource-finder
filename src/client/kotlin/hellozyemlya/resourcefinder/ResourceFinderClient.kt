@@ -35,7 +35,11 @@ object ResourceFinderClient : ClientModInitializer {
 
     private fun getAngleTo(entity: Entity, pos: BlockPos): Double {
         val vec3d = Vec3d.ofCenter(pos)
-        return atan2(vec3d.getZ() - entity.z, vec3d.getX() - entity.x) / 6.2831854820251465
+
+        val sX = MathHelper.lerp(MinecraftClient.getInstance().tickDelta.toDouble(), entity.prevX, entity.x)
+        val sZ = MathHelper.lerp(MinecraftClient.getInstance().tickDelta.toDouble(), entity.prevZ, entity.z)
+
+        return atan2(vec3d.getZ() - sZ, vec3d.getX() - sX) / 6.2831854820251465
     }
 
     private fun getBodyYaw(entity: Entity): Double {
