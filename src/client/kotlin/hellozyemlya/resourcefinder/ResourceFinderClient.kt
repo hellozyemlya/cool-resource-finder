@@ -1,5 +1,6 @@
 package hellozyemlya.resourcefinder
 
+import hellozyemlya.common.pushPop
 import hellozyemlya.resourcefinder.items.getScanList
 import hellozyemlya.resourcefinder.items.getTargetList
 import net.fabricmc.api.ClientModInitializer
@@ -21,6 +22,7 @@ import kotlin.math.atan2
 
 object ResourceFinderClient : ClientModInitializer {
     private val arrowsCache: MutableMap<Int, ItemStack> = HashMap()
+    private val indicatorsCache: MutableMap<Int, ItemStack> = HashMap()
 
     private fun arrowFromColor(color: Int): ItemStack {
         return if (arrowsCache.containsKey(color)) {
@@ -30,6 +32,17 @@ object ResourceFinderClient : ClientModInitializer {
             arrowStack.orCreateNbt.putInt("color", color)
             arrowsCache[color] = arrowStack
             arrowStack
+        }
+    }
+
+    private fun indicatorFromColor(color: Int): ItemStack {
+        return if (indicatorsCache.containsKey(color)) {
+            indicatorsCache[color]!!
+        } else {
+            val indicatorStack = ResourceFinder.RESOURCE_FINDER_INDICATOR_ITEM.defaultStack
+            indicatorStack.orCreateNbt.putInt("color", color)
+            indicatorsCache[color] = indicatorStack
+            indicatorStack
         }
     }
 
@@ -54,6 +67,10 @@ object ResourceFinderClient : ClientModInitializer {
         return 180f - (360f * a)
     }
 
+    private fun isHigher(entity: Entity, pos: BlockPos): Boolean {
+        return entity.blockPos.y > pos.y
+    }
+
     private fun renderArrowsOnEntity(
         entity: LivingEntity,
         stack: ItemStack,
@@ -64,27 +81,49 @@ object ResourceFinderClient : ClientModInitializer {
         renderer: ItemRenderer
     ) {
         stack.getTargetList().forEachIndexed { idx, targetRecord ->
-            matrices.push()
-            matrices.translate(0f, (idx * 0.01f), 0f)
-            matrices.multiply(
-                RotationAxis.POSITIVE_Y.rotationDegrees(
-                    getArrowAngle(
-                        entity,
-                        targetRecord.target
+            matrices.pushPop {
+                matrices.translate(0f, (idx * 0.01f), 0f)
+                matrices.multiply(
+                    RotationAxis.POSITIVE_Y.rotationDegrees(
+                        getArrowAngle(
+                            entity,
+                            targetRecord.target
+                        )
                     )
                 )
-            )
-            renderer.renderItem(
-                arrowFromColor(targetRecord.resourceEntry.color),
-                ModelTransformationMode.NONE,
-                light,
-                overlay,
-                matrices,
-                vertexConsumers,
-                null,
-                0
-            )
-            matrices.pop()
+                renderer.renderItem(
+                    arrowFromColor(targetRecord.resourceEntry.color),
+                    ModelTransformationMode.NONE,
+                    light,
+                    overlay,
+                    matrices,
+                    vertexConsumers,
+                    null,
+                    0
+                )
+            }
+
+            matrices.pushPop {
+                if(isHigher(entity, targetRecord.target)) {
+                    matrices.translate(0f, 0f, -idx * 0.014f)
+                } else {
+                    matrices.multiply(
+                        RotationAxis.POSITIVE_Y.rotation(Math.PI.toFloat())
+                    )
+                    matrices.translate(0f, 0f, -idx * 0.014f)
+                }
+
+                renderer.renderItem(
+                    indicatorFromColor(targetRecord.resourceEntry.color),
+                    ModelTransformationMode.NONE,
+                    light,
+                    overlay,
+                    matrices,
+                    vertexConsumers,
+                    null,
+                    0
+                )
+            }
         }
     }
 
@@ -169,6 +208,11 @@ object ResourceFinderClient : ClientModInitializer {
         ColorProviderRegistry.ITEM.register(
             { stack, _ -> stack.orCreateNbt.getInt("color") },
             ResourceFinder.RESOURCE_FINDER_ARROW_ITEM
+        )
+
+        ColorProviderRegistry.ITEM.register(
+            { stack, _ -> stack.orCreateNbt.getInt("color") },
+            ResourceFinder.RESOURCE_FINDER_INDICATOR_ITEM
         )
 
         TracksRenderLivingEntity.setTracksRenderLivingEntity(ResourceFinder.RESOURCE_FINDER_ITEM, true)

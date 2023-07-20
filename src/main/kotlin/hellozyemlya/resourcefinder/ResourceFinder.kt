@@ -36,6 +36,12 @@ object ResourceFinder : ModInitializer {
         Registries.ITEM, Identifier(MOD_NAMESPACE, "resource_finder_compass_base"),
         Item(FabricItemSettings())
     )
+
+    val RESOURCE_FINDER_INDICATOR_ITEM: Item = Registry.register(
+        Registries.ITEM, Identifier(MOD_NAMESPACE, "resource_finder_compass_indicator"),
+        Item(FabricItemSettings())
+    )
+
     private val RESOURCE_FINDER_GROUP: ItemGroup = FabricItemGroup.builder(Identifier(MOD_NAMESPACE, "resource_finder"))
         .icon { ItemStack(RESOURCE_FINDER_ITEM) }
 		.displayName(Text.translatable("itemGroup.tutorial.test_group"))
