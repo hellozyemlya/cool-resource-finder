@@ -1,5 +1,6 @@
 package hellozyemlya.resourcefinder.items
 
+import hellozyemlya.resourcefinder.ResourceFinderTexts
 import hellozyemlya.resourcefinder.registry.ResourceRegistry
 import net.minecraft.client.item.TooltipContext
 import net.minecraft.entity.Entity
@@ -36,9 +37,9 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
             tooltip.add(
                 Texts.join(
                     mutableListOf(
-                        Text.of("Finds"),
+                        ResourceFinderTexts.SCAN_FOR,
                         blockName,
-                        Text.of("for"),
+                        ResourceFinderTexts.SCAN_JOIN,
                         Text.of(StringHelper.formatTicks(it.lifetime))
                     ), Text.of(" ")
                 )

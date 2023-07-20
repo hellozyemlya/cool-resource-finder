@@ -44,9 +44,9 @@ object ResourceFinder : ModInitializer {
         Item(FabricItemSettings())
     )
 
-    private val RESOURCE_FINDER_GROUP: ItemGroup = FabricItemGroup.builder(Identifier(MOD_NAMESPACE, "resource_finder"))
+    public val RESOURCE_FINDER_GROUP: ItemGroup = FabricItemGroup.builder(Identifier(MOD_NAMESPACE, "resource_finder"))
         .icon { ItemStack(RESOURCE_FINDER_ITEM) }
-		.displayName(Text.translatable("itemGroup.tutorial.test_group"))
+		.displayName(Text.translatable("itemGroup.$MOD_NAMESPACE.resource_finder_group"))
         .build()
 
 

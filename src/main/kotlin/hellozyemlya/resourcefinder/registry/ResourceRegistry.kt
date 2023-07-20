@@ -9,7 +9,6 @@ import net.minecraft.item.Items
 
 class ResourceRegistry private constructor() {
     private val groupsMap: MutableMap<Item, ResourceEntry> = HashMap()
-
     private val chargeItemToEntry: Int2ObjectOpenHashMap<ResourceEntry> by lazy {
         val result = Int2ObjectOpenHashMap<ResourceEntry>()
         groupsMap.values.forEach { resourceEntry ->
@@ -19,6 +18,13 @@ class ResourceRegistry private constructor() {
         }
         result
     }
+
+    constructor(entries: List<ResourceEntry>) : this() {
+        entries.forEach {
+            groupsMap[it.group] = it
+        }
+    }
+
 
     public val groups: Collection<ResourceEntry>
         get() = groupsMap.values
@@ -49,7 +55,7 @@ class ResourceRegistry private constructor() {
     }
 
     companion object {
-        val DEFAULT_REGISTRY: ResourceRegistry = ResourceRegistry().apply {
+        private val DEFAULT_REGISTRY: ResourceRegistry = ResourceRegistry().apply {
             addGroup(
                 Items.REDSTONE,
                 0xff0000,

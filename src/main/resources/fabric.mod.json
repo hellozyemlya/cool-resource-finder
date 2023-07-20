@@ -3,13 +3,13 @@
 	"id": "cool-resource-finder",
 	"version": "${version}",
 	"name": "Cool Resource Finder",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"description": "Special compass that allows to locate resources.",
 	"authors": [
-		"Me!"
+		"https://github.com/hellozyemlya"
 	],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"homepage": "https://github.com/hellozyemlya/cool-resource-finder",
+		"sources": "https://github.com/hellozyemlya/cool-resource-finder"
 	},
 	"license": "CC0-1.0",
 	"icon": "assets/cool-resource-finder/icon.png",
@@ -29,7 +29,7 @@
 		],
 		"fabric-datagen": [
 			{
-				"value": "hellozyemlya.resourcefinder.ExampleModDataGenerator",
+				"value": "hellozyemlya.resourcefinder.ResourceFinderDataGenerator",
 				"adapter": "kotlin"
 			}
 		]
