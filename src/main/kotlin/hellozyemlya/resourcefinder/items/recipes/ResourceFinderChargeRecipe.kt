@@ -4,7 +4,6 @@ import hellozyemlya.resourcefinder.ResourceFinder
 import hellozyemlya.resourcefinder.items.ScanRecord
 import hellozyemlya.resourcefinder.items.getScanList
 import hellozyemlya.resourcefinder.registry.ResourceRegistry
-import net.minecraft.inventory.CraftingInventory
 import net.minecraft.inventory.RecipeInputInventory
 import net.minecraft.item.ItemStack
 import net.minecraft.recipe.RecipeSerializer
@@ -14,11 +13,10 @@ import net.minecraft.registry.DynamicRegistryManager
 import net.minecraft.util.Identifier
 import net.minecraft.util.collection.DefaultedList
 import net.minecraft.world.World
-import java.lang.IllegalStateException
 
 class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategory) : SpecialCraftingRecipe(
-    id,
-    category
+        id,
+        category
 ) {
     private fun getRecipeItems(inventory: RecipeInputInventory): Pair<ItemStack, ArrayList<ItemStack>> {
         var compass: ItemStack? = null
@@ -35,7 +33,7 @@ class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategor
             }
         }
 
-        if(compass == null || charges.isEmpty()) {
+        if (compass == null || charges.isEmpty()) {
             throw IllegalStateException()
         }
 
@@ -52,7 +50,7 @@ class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategor
                 if (curStack.isOf(ResourceFinder.RESOURCE_FINDER_ITEM)) {
                     hasCompass = true
                 } else {
-                    if(!ResourceRegistry.INSTANCE.canBeChargedBy(curStack.item)) {
+                    if (!ResourceRegistry.INSTANCE.canBeChargedBy(curStack.item)) {
                         return false
                     }
                     hasOtherResources = true

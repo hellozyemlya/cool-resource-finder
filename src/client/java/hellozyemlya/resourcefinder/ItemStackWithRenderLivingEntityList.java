@@ -8,6 +8,6 @@ public interface ItemStackWithRenderLivingEntityList {
     ObjectArrayList<LivingEntity> cool_resource_finder$getRenderLivingEntityList();
 
     static ObjectArrayList<LivingEntity> getRenderLivingEntityList(ItemStack itemStack) {
-        return ((ItemStackWithRenderLivingEntityList)(Object)itemStack).cool_resource_finder$getRenderLivingEntityList();
+        return ((ItemStackWithRenderLivingEntityList) (Object) itemStack).cool_resource_finder$getRenderLivingEntityList();
     }
 }

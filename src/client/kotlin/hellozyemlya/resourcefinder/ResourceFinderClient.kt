@@ -66,15 +66,16 @@ object ResourceFinderClient : ClientModInitializer {
 
         return 180f - (360f * a)
     }
+
     private fun renderArrowsOnEntity(
-        entity: LivingEntity,
-        stack: ItemStack,
-        matrices: MatrixStack,
-        vertexConsumers: VertexConsumerProvider,
-        mode: ModelTransformationMode,
-        light: Int,
-        overlay: Int,
-        renderer: ItemRenderer
+            entity: LivingEntity,
+            stack: ItemStack,
+            matrices: MatrixStack,
+            vertexConsumers: VertexConsumerProvider,
+            mode: ModelTransformationMode,
+            light: Int,
+            overlay: Int,
+            renderer: ItemRenderer
     ) {
         var topIdx = -1
         var botIdx = -1
@@ -83,51 +84,53 @@ object ResourceFinderClient : ClientModInitializer {
             matrices.pushPop {
                 matrices.translate(0f, (idx * 0.01f), 0f)
                 matrices.multiply(
-                    RotationAxis.POSITIVE_Y.rotationDegrees(
-                        getArrowAngle(
-                            entity,
-                            blockPost
+                        RotationAxis.POSITIVE_Y.rotationDegrees(
+                                getArrowAngle(
+                                        entity,
+                                        blockPost
+                                )
                         )
-                    )
                 )
                 renderer.renderItem(
-                    arrowFromColor(targetRecord.color),
-                    ModelTransformationMode.NONE,
-                    light,
-                    overlay,
-                    matrices,
-                    vertexConsumers,
-                    null,
-                    0
+                        arrowFromColor(targetRecord.color),
+                        ModelTransformationMode.NONE,
+                        light,
+                        overlay,
+                        matrices,
+                        vertexConsumers,
+                        null,
+                        0
                 )
             }
 
-            if(mode != ModelTransformationMode.GUI) {
+            if (mode != ModelTransformationMode.GUI) {
                 matrices.pushPop {
                     val renderIndicator = when {
                         entity.blockPos.y > blockPost.y -> {
-                            matrices.translate(0f, 0f, - ++topIdx * 0.013f)
+                            matrices.translate(0f, 0f, -++topIdx * 0.013f)
                             true
                         }
+
                         entity.blockPos.y < blockPost.y -> {
                             matrices.multiply(
-                                RotationAxis.POSITIVE_Y.rotation(Math.PI.toFloat())
+                                    RotationAxis.POSITIVE_Y.rotation(Math.PI.toFloat())
                             )
-                            matrices.translate(0f, 0f, - ++botIdx * 0.013f)
+                            matrices.translate(0f, 0f, -++botIdx * 0.013f)
                             true
                         }
+
                         else -> false
                     }
-                    if(renderIndicator) {
+                    if (renderIndicator) {
                         renderer.renderItem(
-                            indicatorFromColor(targetRecord.color),
-                            ModelTransformationMode.NONE,
-                            light,
-                            overlay,
-                            matrices,
-                            vertexConsumers,
-                            null,
-                            0
+                                indicatorFromColor(targetRecord.color),
+                                ModelTransformationMode.NONE,
+                                light,
+                                overlay,
+                                matrices,
+                                vertexConsumers,
+                                null,
+                                0
                         )
                     }
                 }
@@ -136,26 +139,26 @@ object ResourceFinderClient : ClientModInitializer {
     }
 
     private fun renderArrowsPreview(
-        stack: ItemStack,
-        matrices: MatrixStack,
-        vertexConsumers: VertexConsumerProvider,
-        light: Int,
-        overlay: Int,
-        renderer: ItemRenderer
+            stack: ItemStack,
+            matrices: MatrixStack,
+            vertexConsumers: VertexConsumerProvider,
+            light: Int,
+            overlay: Int,
+            renderer: ItemRenderer
     ) {
         stack.getScanList().forEachIndexed { idx, scanRecord ->
             matrices.push()
             matrices.translate(0f, (idx * 0.01f), 0f)
             matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(25f * idx))
             renderer.renderItem(
-                arrowFromColor(scanRecord.color),
-                ModelTransformationMode.NONE,
-                light,
-                overlay,
-                matrices,
-                vertexConsumers,
-                null,
-                0
+                    arrowFromColor(scanRecord.color),
+                    ModelTransformationMode.NONE,
+                    light,
+                    overlay,
+                    matrices,
+                    vertexConsumers,
+                    null,
+                    0
             )
             matrices.pop()
         }
@@ -167,14 +170,14 @@ object ResourceFinderClient : ClientModInitializer {
 
             matrices.translate(0.5f, 0.5f, 0.5f)
             renderer.renderItem(
-                ResourceFinder.RESOURCE_FINDER_BASE_ITEM.defaultStack,
-                ModelTransformationMode.NONE,
-                light,
-                overlay,
-                matrices,
-                vertexConsumers,
-                null,
-                0
+                    ResourceFinder.RESOURCE_FINDER_BASE_ITEM.defaultStack,
+                    ModelTransformationMode.NONE,
+                    light,
+                    overlay,
+                    matrices,
+                    vertexConsumers,
+                    null,
+                    0
             )
 
             val renderEntities = ItemStackWithRenderLivingEntityList.getRenderLivingEntityList(stack)
@@ -199,14 +202,14 @@ object ResourceFinderClient : ClientModInitializer {
 
                 if (renderWithEntity) {
                     renderArrowsOnEntity(
-                        renderEntities.top(),
-                        stack,
-                        matrices,
-                        vertexConsumers,
-                        mode,
-                        light,
-                        overlay,
-                        renderer
+                            renderEntities.top(),
+                            stack,
+                            matrices,
+                            vertexConsumers,
+                            mode,
+                            light,
+                            overlay,
+                            renderer
                     )
                 } else {
                     renderArrowsPreview(stack, matrices, vertexConsumers, light, overlay, renderer)
@@ -215,13 +218,13 @@ object ResourceFinderClient : ClientModInitializer {
         }
 
         ColorProviderRegistry.ITEM.register(
-            { stack, _ -> stack.orCreateNbt.getInt("color") },
-            ResourceFinder.RESOURCE_FINDER_ARROW_ITEM
+                { stack, _ -> stack.orCreateNbt.getInt("color") },
+                ResourceFinder.RESOURCE_FINDER_ARROW_ITEM
         )
 
         ColorProviderRegistry.ITEM.register(
-            { stack, _ -> stack.orCreateNbt.getInt("color") },
-            ResourceFinder.RESOURCE_FINDER_INDICATOR_ITEM
+                { stack, _ -> stack.orCreateNbt.getInt("color") },
+                ResourceFinder.RESOURCE_FINDER_INDICATOR_ITEM
         )
 
         TracksRenderLivingEntity.setTracksRenderLivingEntity(ResourceFinder.RESOURCE_FINDER_ITEM, true)

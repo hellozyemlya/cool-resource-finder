@@ -34,10 +34,10 @@ class ResourceRegistry private constructor() {
     }
 
     private fun addGroup(
-        groupItem: Item,
-        color: Int,
-        targetBlocks: List<Block>,
-        rechargeItems: List<ChargeItem>
+            groupItem: Item,
+            color: Int,
+            targetBlocks: List<Block>,
+            rechargeItems: List<ChargeItem>
     ) {
         groupsMap[groupItem] = ResourceEntry(groupItem, color, targetBlocks, rechargeItems)
     }
@@ -57,76 +57,76 @@ class ResourceRegistry private constructor() {
     companion object {
         private val DEFAULT_REGISTRY: ResourceRegistry = ResourceRegistry().apply {
             addGroup(
-                Items.REDSTONE,
-                0xff0000,
-                listOf(Blocks.REDSTONE_ORE, Blocks.DEEPSLATE_REDSTONE_ORE),
-                listOf(ChargeItem(Items.REDSTONE_BLOCK, 10800), ChargeItem(Items.REDSTONE, 1200))
+                    Items.REDSTONE,
+                    0xff0000,
+                    listOf(Blocks.REDSTONE_ORE, Blocks.DEEPSLATE_REDSTONE_ORE),
+                    listOf(ChargeItem(Items.REDSTONE_BLOCK, 10800), ChargeItem(Items.REDSTONE, 1200))
             )
             addGroup(
-                Items.DIAMOND,
-                0x1D969A,
-                listOf(Blocks.DIAMOND_ORE, Blocks.DEEPSLATE_DIAMOND_ORE),
-                listOf(ChargeItem(Items.DIAMOND_BLOCK, 10800), ChargeItem(Items.DIAMOND, 1200))
+                    Items.DIAMOND,
+                    0x1D969A,
+                    listOf(Blocks.DIAMOND_ORE, Blocks.DEEPSLATE_DIAMOND_ORE),
+                    listOf(ChargeItem(Items.DIAMOND_BLOCK, 10800), ChargeItem(Items.DIAMOND, 1200))
             )
             addGroup(
-                Items.COAL,
-                0x363636,
-                listOf(Blocks.COAL_ORE, Blocks.DEEPSLATE_COAL_ORE),
-                listOf(
-                    ChargeItem(Items.COAL_BLOCK, 10800),
-                    ChargeItem(Items.COAL, 1200),
-                    ChargeItem(Items.CHARCOAL, 1200)
-                )
+                    Items.COAL,
+                    0x363636,
+                    listOf(Blocks.COAL_ORE, Blocks.DEEPSLATE_COAL_ORE),
+                    listOf(
+                            ChargeItem(Items.COAL_BLOCK, 10800),
+                            ChargeItem(Items.COAL, 1200),
+                            ChargeItem(Items.CHARCOAL, 1200)
+                    )
             )
             addGroup(
-                Items.IRON_INGOT,
-                0xD8D8D8,
-                listOf(Blocks.IRON_ORE, Blocks.DEEPSLATE_IRON_ORE, Blocks.RAW_IRON_BLOCK, Blocks.RAW_IRON_BLOCK),
-                listOf(
-                    ChargeItem(Items.IRON_BLOCK, 10800),
-                    ChargeItem(Items.IRON_INGOT, 1200),
-                    ChargeItem(Items.RAW_IRON, 1200),
-                    ChargeItem(Items.IRON_NUGGET, 133)
-                )
+                    Items.IRON_INGOT,
+                    0xD8D8D8,
+                    listOf(Blocks.IRON_ORE, Blocks.DEEPSLATE_IRON_ORE, Blocks.RAW_IRON_BLOCK, Blocks.RAW_IRON_BLOCK),
+                    listOf(
+                            ChargeItem(Items.IRON_BLOCK, 10800),
+                            ChargeItem(Items.IRON_INGOT, 1200),
+                            ChargeItem(Items.RAW_IRON, 1200),
+                            ChargeItem(Items.IRON_NUGGET, 133)
+                    )
             )
             addGroup(
-                Items.EMERALD,
-                0x17DD62,
-                listOf(Blocks.EMERALD_ORE, Blocks.DEEPSLATE_EMERALD_ORE),
-                listOf(
-                    ChargeItem(Items.EMERALD_BLOCK, 10800),
-                    ChargeItem(Items.EMERALD, 1200)
-                )
+                    Items.EMERALD,
+                    0x17DD62,
+                    listOf(Blocks.EMERALD_ORE, Blocks.DEEPSLATE_EMERALD_ORE),
+                    listOf(
+                            ChargeItem(Items.EMERALD_BLOCK, 10800),
+                            ChargeItem(Items.EMERALD, 1200)
+                    )
             )
             addGroup(
-                Items.COPPER_INGOT,
-                0xC15A36,
-                listOf(Blocks.COPPER_ORE, Blocks.DEEPSLATE_COPPER_ORE),
-                listOf(
-                    ChargeItem(Items.COPPER_BLOCK, 10800),
-                    ChargeItem(Items.COPPER_INGOT, 1200)
-                )
+                    Items.COPPER_INGOT,
+                    0xC15A36,
+                    listOf(Blocks.COPPER_ORE, Blocks.DEEPSLATE_COPPER_ORE),
+                    listOf(
+                            ChargeItem(Items.COPPER_BLOCK, 10800),
+                            ChargeItem(Items.COPPER_INGOT, 1200)
+                    )
             )
             addGroup(
-                Items.GOLD_INGOT,
-                0xFDF55F,
-                listOf(Blocks.GOLD_ORE, Blocks.DEEPSLATE_GOLD_ORE, Blocks.RAW_GOLD_BLOCK, Blocks.NETHER_GOLD_ORE),
-                listOf(
-                    ChargeItem(Items.GOLD_BLOCK, 10800),
-                    ChargeItem(Items.GOLD_INGOT, 1200),
-                    ChargeItem(Items.RAW_GOLD, 1200),
-                    ChargeItem(Items.GOLD_NUGGET, 133)
-                )
+                    Items.GOLD_INGOT,
+                    0xFDF55F,
+                    listOf(Blocks.GOLD_ORE, Blocks.DEEPSLATE_GOLD_ORE, Blocks.RAW_GOLD_BLOCK, Blocks.NETHER_GOLD_ORE),
+                    listOf(
+                            ChargeItem(Items.GOLD_BLOCK, 10800),
+                            ChargeItem(Items.GOLD_INGOT, 1200),
+                            ChargeItem(Items.RAW_GOLD, 1200),
+                            ChargeItem(Items.GOLD_NUGGET, 133)
+                    )
             )
             addGroup(
-                Items.NETHERITE_SCRAP,
-                0x5D342C,
-                listOf(Blocks.ANCIENT_DEBRIS),
-                listOf(
-                    ChargeItem(Items.NETHERITE_BLOCK, 10800),
-                    ChargeItem(Items.NETHERITE_INGOT, 1200),
-                    ChargeItem(Items.NETHERITE_SCRAP, 300)
-                )
+                    Items.NETHERITE_SCRAP,
+                    0x5D342C,
+                    listOf(Blocks.ANCIENT_DEBRIS),
+                    listOf(
+                            ChargeItem(Items.NETHERITE_BLOCK, 10800),
+                            ChargeItem(Items.NETHERITE_INGOT, 1200),
+                            ChargeItem(Items.NETHERITE_SCRAP, 300)
+                    )
             )
         }
 

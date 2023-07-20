@@ -2,8 +2,6 @@ package hellozyemlya.resourcefinder
 
 import hellozyemlya.resourcefinder.items.ResourceFinderCompass
 import hellozyemlya.resourcefinder.items.recipes.ResourceFinderChargeRecipe
-import hellozyemlya.resourcefinder.registry.ResourceRegistry
-import hellozyemlya.resourcefinder.registry.config.Config
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.item.v1.FabricItemSettings
 import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup
@@ -20,7 +18,6 @@ import net.minecraft.text.Text
 import net.minecraft.util.Identifier
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import kotlin.reflect.full.primaryConstructor
 
 object ResourceFinder : ModInitializer {
     public val LOGGER: Logger = LoggerFactory.getLogger("cool-resource-finder")
@@ -46,7 +43,7 @@ object ResourceFinder : ModInitializer {
             Item(FabricItemSettings())
     )
 
-    val RESOURCE_FINDER_GROUP_KEY = RegistryKey.of(RegistryKeys.ITEM_GROUP,  Identifier(MOD_NAMESPACE, "resource_finder"))
+    val RESOURCE_FINDER_GROUP_KEY = RegistryKey.of(RegistryKeys.ITEM_GROUP, Identifier(MOD_NAMESPACE, "resource_finder"))
 
     public val RESOURCE_FINDER_GROUP: ItemGroup = Registry.register(Registries.ITEM_GROUP,
             RESOURCE_FINDER_GROUP_KEY,
@@ -65,5 +62,6 @@ object ResourceFinder : ModInitializer {
 
     override fun onInitialize() {
         ItemGroupEvents.modifyEntriesEvent(RESOURCE_FINDER_GROUP_KEY)
-                .register { content -> content.add(RESOURCE_FINDER_ITEM) } }
+                .register { content -> content.add(RESOURCE_FINDER_ITEM) }
+    }
 }

@@ -14,7 +14,7 @@ public abstract class ItemStackMixin implements ItemStackWithRenderLivingEntityL
 
     @Override
     public ObjectArrayList<LivingEntity> cool_resource_finder$getRenderLivingEntityList() {
-        if(renderEntities.size() > 50) {
+        if (renderEntities.size() > 50) {
             throw new IllegalStateException("leak!");
         }
         return renderEntities;

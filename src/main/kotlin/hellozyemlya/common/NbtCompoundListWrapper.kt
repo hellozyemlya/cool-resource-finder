@@ -8,7 +8,7 @@ import net.minecraft.nbt.NbtList
 abstract class NbtCompoundListWrapper<T>(private val stack: ItemStack, private val key: String) : AbstractMutableList<T>() {
     private val nbtList: NbtList
         get() {
-            return if(stack.orCreateNbt.contains(key)){
+            return if (stack.orCreateNbt.contains(key)) {
                 stack.orCreateNbt.getList(key, NbtElement.COMPOUND_TYPE.toInt())
             } else {
                 val nbtList = NbtList()

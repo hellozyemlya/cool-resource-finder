@@ -6,7 +6,6 @@ import net.fabricmc.fabric.api.datagen.v1.FabricDataOutput
 import net.fabricmc.fabric.api.datagen.v1.provider.FabricLanguageProvider
 import net.minecraft.text.MutableText
 import net.minecraft.text.TranslatableTextContent
-import java.lang.IllegalArgumentException
 
 fun FabricLanguageProvider.TranslationBuilder.add(text: MutableText, value: String) {
     val content = text.content
