@@ -65,7 +65,6 @@ object ResourceFinder : ModInitializer {
 //            ResourceFinderCompassChargeRecipe.Serializer.INSTANCE
 //        )
 
-        Config.save(ResourceRegistry.INSTANCE, "cool-resource-finder-registry")
         LOGGER.info("Hello Fabric world!")
     }
 }

@@ -11,6 +11,7 @@ import net.minecraft.block.Block
 import net.minecraft.item.Item
 import net.minecraft.resource.ResourceFinder.json
 import java.io.File
+import java.io.FileReader
 import java.io.FileWriter
 import java.io.IOException
 import java.nio.file.Paths
@@ -41,13 +42,27 @@ object Config {
     }
 
     public inline fun <reified T> save(obj: T, name: String) {
-
         FileWriter(getConfigFile(name)).use { fileWriter ->
             gson.toJson(
                 obj,
                 T::class.java,
                 fileWriter
             )
+        }
+    }
+
+    public inline fun <reified T> load(name: String, default: T): T {
+        val configFile = getConfigFile(name)
+        if(configFile.exists()) {
+            FileReader(configFile).use { fileReader  ->
+                return gson.fromJson(
+                    fileReader,
+                    T::class.java,
+                )
+            }
+        } else {
+            save(default, name)
+            return default
         }
     }
 }
