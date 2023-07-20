@@ -3,9 +3,10 @@
   "package": "hellozyemlya.resourcefinder.mixin.client",
   "compatibilityLevel": "JAVA_17",
   "client": [
-    "render.ItemRendererMixin",
     "ItemMixin",
-    "ItemStackMixin"
+    "ItemStackMixin",
+    "render.DrawContextMixin",
+    "render.ItemRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 1

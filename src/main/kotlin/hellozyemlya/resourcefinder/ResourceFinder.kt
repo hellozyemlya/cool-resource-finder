@@ -14,6 +14,8 @@ import net.minecraft.item.ItemStack
 import net.minecraft.recipe.SpecialRecipeSerializer
 import net.minecraft.registry.Registries
 import net.minecraft.registry.Registry
+import net.minecraft.registry.RegistryKey
+import net.minecraft.registry.RegistryKeys
 import net.minecraft.text.Text
 import net.minecraft.util.Identifier
 import org.slf4j.Logger
@@ -25,46 +27,43 @@ object ResourceFinder : ModInitializer {
     public const val MOD_NAMESPACE = "cool-resource-finder"
 
     val RESOURCE_FINDER_ITEM: ResourceFinderCompass = Registry.register(
-        Registries.ITEM, Identifier(MOD_NAMESPACE, "resource_finder_compass"),
-        ResourceFinderCompass(FabricItemSettings().maxCount(1))
+            Registries.ITEM, Identifier(MOD_NAMESPACE, "resource_finder_compass"),
+            ResourceFinderCompass(FabricItemSettings().maxCount(1))
     )
 
     val RESOURCE_FINDER_ARROW_ITEM: Item = Registry.register(
-        Registries.ITEM, Identifier(MOD_NAMESPACE, "resource_finder_compass_arrow"),
-        Item(FabricItemSettings())
+            Registries.ITEM, Identifier(MOD_NAMESPACE, "resource_finder_compass_arrow"),
+            Item(FabricItemSettings())
     )
 
     val RESOURCE_FINDER_BASE_ITEM: Item = Registry.register(
-        Registries.ITEM, Identifier(MOD_NAMESPACE, "resource_finder_compass_base"),
-        Item(FabricItemSettings())
+            Registries.ITEM, Identifier(MOD_NAMESPACE, "resource_finder_compass_base"),
+            Item(FabricItemSettings())
     )
 
     val RESOURCE_FINDER_INDICATOR_ITEM: Item = Registry.register(
-        Registries.ITEM, Identifier(MOD_NAMESPACE, "resource_finder_compass_indicator"),
-        Item(FabricItemSettings())
+            Registries.ITEM, Identifier(MOD_NAMESPACE, "resource_finder_compass_indicator"),
+            Item(FabricItemSettings())
     )
 
-    public val RESOURCE_FINDER_GROUP: ItemGroup = FabricItemGroup.builder(Identifier(MOD_NAMESPACE, "resource_finder"))
-        .icon { ItemStack(RESOURCE_FINDER_ITEM) }
-		.displayName(Text.translatable("itemGroup.$MOD_NAMESPACE.resource_finder_group"))
-        .build()
+    val RESOURCE_FINDER_GROUP_KEY = RegistryKey.of(RegistryKeys.ITEM_GROUP,  Identifier(MOD_NAMESPACE, "resource_finder"))
+
+    public val RESOURCE_FINDER_GROUP: ItemGroup = Registry.register(Registries.ITEM_GROUP,
+            RESOURCE_FINDER_GROUP_KEY,
+            FabricItemGroup.builder()
+                    .icon { ItemStack(RESOURCE_FINDER_ITEM) }
+                    .displayName(Text.translatable("itemGroup.$MOD_NAMESPACE.resource_finder_group"))
+                    .build())
 
 
     final val RESOURCE_FINDER_REPAIR_SERIALIZER = Registry.register(Registries.RECIPE_SERIALIZER, Identifier(MOD_NAMESPACE, "crafting_special_resource_finder_charge"), SpecialRecipeSerializer { id, category ->
         ResourceFinderChargeRecipe(
-            id,
-            category
+                id,
+                category
         )
     })
 
     override fun onInitialize() {
-		ItemGroupEvents.modifyEntriesEvent(RESOURCE_FINDER_GROUP)
-			.register { content -> content.add(RESOURCE_FINDER_ITEM) }
-//        Registry.register(
-//            Registries.RECIPE_SERIALIZER, ResourceFinderCompassChargeRecipe.Serializer.ID,
-//            ResourceFinderCompassChargeRecipe.Serializer.INSTANCE
-//        )
-
-        LOGGER.info("Hello Fabric world!")
-    }
+        ItemGroupEvents.modifyEntriesEvent(RESOURCE_FINDER_GROUP_KEY)
+                .register { content -> content.add(RESOURCE_FINDER_ITEM) } }
 }
