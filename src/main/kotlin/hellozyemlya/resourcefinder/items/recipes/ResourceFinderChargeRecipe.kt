@@ -73,16 +73,12 @@ class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategor
             val chargeItem = chargeStack.item
             val resourceEntry = ResourceRegistry.INSTANCE.getByChargingItem(chargeItem)
 
-            requireNotNull(resourceEntry) {
-                "Must not be null"
-            }
-
             val chargeValue = resourceEntry.getChargeTicks(chargeItem) * chargeStack.count
-            val existingEntry = result.getScanList().firstOrNull { it.resourceEntry.index == resourceEntry.index }
+            val existingEntry = result.getScanList().firstOrNull { it.key == resourceEntry.group }
             if (existingEntry != null) {
-                existingEntry.entryLifetime += chargeValue
+                existingEntry.lifetime += chargeValue
             } else {
-                scanList.add(ScanRecord(resourceEntry, chargeValue))
+                scanList.add(ScanRecord(resourceEntry.group, resourceEntry.color, chargeValue))
             }
         }
 

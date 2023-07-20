@@ -4,32 +4,38 @@ package hellozyemlya.resourcefinder.items
 
 import hellozyemlya.common.NbtCompoundListWrapper
 import hellozyemlya.resourcefinder.ResourceFinder
-import hellozyemlya.resourcefinder.registry.ResourceEntry
-import hellozyemlya.resourcefinder.registry.ResourceRegistry
+import net.minecraft.item.Item
 import net.minecraft.item.ItemStack
 import net.minecraft.nbt.NbtCompound
+import net.minecraft.registry.Registries
+import net.minecraft.util.Identifier
 import net.minecraft.util.math.BlockPos
 
 class ScanRecord(val compound: NbtCompound) {
-    public var resourceEntry: ResourceEntry
-        get() = ResourceRegistry.INSTANCE.getByIndex(compound.getInt("what"))!!
-        set(value) = compound.putInt("what", value.index)
+    public var key: Item
+        get() = Registries.ITEM.get(Identifier.tryParse(compound.getString("key")))
+        set(value) = compound.putString("key", Registries.ITEM.getId(value).toString())
 
-    public var entryLifetime: Int
+    public var color: Int
+        get() = compound.getInt("color")
+        set(value) = compound.putInt("color", value)
+
+    public var lifetime: Int
         get() = compound.getInt("lifetime")
         set(value) = compound.putInt("lifetime", value)
 
-    constructor(entry: ResourceEntry, lifetime: Int) : this(NbtCompound()) {
-        resourceEntry = entry
-        entryLifetime = lifetime
+    constructor(key: Item, color: Int, lifetime: Int) : this(NbtCompound()) {
+        this.key = key
+        this.color = color
+        this.lifetime = lifetime
     }
 
 }
 
 class TargetRecord(val compound: NbtCompound) {
-    public var resourceEntry: ResourceEntry
-        get() = ResourceRegistry.INSTANCE.getByIndex(compound.getInt("what"))!!
-        set(value) = compound.putInt("what", value.index)
+    public var color: Int
+        get() = compound.getInt("color")
+        set(value) = compound.putInt("color", value)
 
     public var target: BlockPos
         get() {
@@ -38,8 +44,8 @@ class TargetRecord(val compound: NbtCompound) {
         }
         set(value) = compound.putIntArray("position", intArrayOf(value.x, value.y, value.z))
 
-    constructor(entry: ResourceEntry, target: BlockPos) : this(NbtCompound()) {
-        resourceEntry = entry
+    constructor(color: Int, target: BlockPos) : this(NbtCompound()) {
+        this.color = color
         this.target = target
     }
 }
@@ -73,19 +79,19 @@ private fun ItemStack.requireIsCompass() {
 
 public fun ItemStack.getScanList(): MutableList<ScanRecord> {
     this.requireIsCompass()
-    return ScanRecordList(this, "scan_list")
+    return ScanRecordList(this, "scan_list_v0")
 }
 
 public fun ItemStack.getTargetList(): MutableList<TargetRecord> {
     this.requireIsCompass()
-    return TargetRecordList(this, "target_list")
+    return TargetRecordList(this, "target_list_v0")
 }
 
 public var ItemStack.scanTimeout: Int
     get() {
         this.requireIsCompass()
         val nbt = this.orCreateNbt
-        return if(nbt.contains("scan_timeout")) {
+        return if (nbt.contains("scan_timeout")) {
             nbt.getInt("scan_timeout")
         } else {
             nbt.putInt("scan_timeout", ResourceFinderCompass.DEFAULT_SCAN_TIMEOUT)

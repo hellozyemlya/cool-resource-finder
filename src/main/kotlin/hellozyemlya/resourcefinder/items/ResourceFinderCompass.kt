@@ -1,5 +1,6 @@
 package hellozyemlya.resourcefinder.items
 
+import hellozyemlya.resourcefinder.registry.ResourceRegistry
 import net.minecraft.client.item.TooltipContext
 import net.minecraft.entity.Entity
 import net.minecraft.entity.player.PlayerEntity
@@ -29,8 +30,8 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
     override fun appendTooltip(stack: ItemStack, world: World?, tooltip: MutableList<Text?>, context: TooltipContext?) {
         stack.getScanList().forEach {
             val blockName = Texts.setStyleIfAbsent(
-                it.resourceEntry.displayItem.name.copyContentOnly(),
-                Style.EMPTY.withColor(TextColor.fromRgb(it.resourceEntry.color))
+                it.key.name.copyContentOnly(),
+                Style.EMPTY.withColor(TextColor.fromRgb(it.color))
             )
             tooltip.add(
                 Texts.join(
@@ -38,7 +39,7 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
                         Text.of("Finds"),
                         blockName,
                         Text.of("for"),
-                        Text.of(StringHelper.formatTicks(it.entryLifetime))
+                        Text.of(StringHelper.formatTicks(it.lifetime))
                     ), Text.of(" ")
                 )
             )
@@ -50,7 +51,7 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
         if (selected && stack != null && world != null) {
             if (!world.isClient) {
                 val scanList = stack.getScanList()
-                scanList.removeIf { it.entryLifetime-- <= 0 }
+                scanList.removeIf { it.lifetime-- <= 0 }
 
                 val position = entity.blockPos
 
@@ -61,9 +62,10 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
                     targetList.clear()
 
                     scanList.forEach {
-                        val posCandidate = it.resourceEntry.findClosest(16, position, world)
+                        val resourceRecord = ResourceRegistry.INSTANCE.getByGroup(it.key)
+                        val posCandidate = resourceRecord.findClosest(16, position, world)
                         if (posCandidate.isPresent) {
-                            targetList.add(TargetRecord(it.resourceEntry, posCandidate.get()))
+                            targetList.add(TargetRecord(resourceRecord.color, posCandidate.get()))
                         }
                     }
 

@@ -91,7 +91,7 @@ object ResourceFinderClient : ClientModInitializer {
                     )
                 )
                 renderer.renderItem(
-                    arrowFromColor(targetRecord.resourceEntry.color),
+                    arrowFromColor(targetRecord.color),
                     ModelTransformationMode.NONE,
                     light,
                     overlay,
@@ -120,7 +120,7 @@ object ResourceFinderClient : ClientModInitializer {
                     }
                     if(renderIndicator) {
                         renderer.renderItem(
-                            indicatorFromColor(targetRecord.resourceEntry.color),
+                            indicatorFromColor(targetRecord.color),
                             ModelTransformationMode.NONE,
                             light,
                             overlay,
@@ -148,7 +148,7 @@ object ResourceFinderClient : ClientModInitializer {
             matrices.translate(0f, (idx * 0.01f), 0f)
             matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(25f * idx))
             renderer.renderItem(
-                arrowFromColor(scanRecord.resourceEntry.color),
+                arrowFromColor(scanRecord.color),
                 ModelTransformationMode.NONE,
                 light,
                 overlay,

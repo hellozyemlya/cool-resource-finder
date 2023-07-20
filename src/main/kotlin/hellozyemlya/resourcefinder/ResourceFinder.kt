@@ -2,6 +2,8 @@ package hellozyemlya.resourcefinder
 
 import hellozyemlya.resourcefinder.items.ResourceFinderCompass
 import hellozyemlya.resourcefinder.items.recipes.ResourceFinderChargeRecipe
+import hellozyemlya.resourcefinder.registry.ResourceRegistry
+import hellozyemlya.resourcefinder.registry.config.Config
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.item.v1.FabricItemSettings
 import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup
@@ -63,7 +65,7 @@ object ResourceFinder : ModInitializer {
 //            ResourceFinderCompassChargeRecipe.Serializer.INSTANCE
 //        )
 
-
+        Config.save(ResourceRegistry.INSTANCE, "cool-resource-finder-registry")
         LOGGER.info("Hello Fabric world!")
     }
 }

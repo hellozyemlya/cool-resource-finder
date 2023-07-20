@@ -8,22 +8,18 @@ import java.util.*
 
 @JvmRecord
 data class ResourceEntry(
-    val index: Int,
+    val group: Item,
     val color: Int,
     val targetBlocks: List<Block>,
-    val rechargeItems: List<ChargeItem>,
-    val displayItem: Item
+    val rechargeItems: List<ChargeItem>
 ) {
-    fun canBeChargedBy(item: Item): Boolean {
-        return rechargeItems.find { it.item == item } != null
-    }
 
-    fun findClosest(distance: Int, position: BlockPos?, world: World): Optional<BlockPos> {
+    fun findClosest(distance: Int, position: BlockPos, world: World): Optional<BlockPos> {
         return BlockPos.findClosest(
             position,
             distance,
             distance
-        ) { blockPos: BlockPos? ->
+        ) { blockPos: BlockPos ->
             targetBlocks.contains(
                 world.getBlockState(
                     blockPos
