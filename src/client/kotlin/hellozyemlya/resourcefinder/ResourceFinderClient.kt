@@ -66,28 +66,27 @@ object ResourceFinderClient : ClientModInitializer {
 
         return 180f - (360f * a)
     }
-
-    private fun isHigher(entity: Entity, pos: BlockPos): Boolean {
-        return entity.blockPos.y > pos.y
-    }
-
     private fun renderArrowsOnEntity(
         entity: LivingEntity,
         stack: ItemStack,
         matrices: MatrixStack,
         vertexConsumers: VertexConsumerProvider,
+        mode: ModelTransformationMode,
         light: Int,
         overlay: Int,
         renderer: ItemRenderer
     ) {
+        var topIdx = -1
+        var botIdx = -1
         stack.getTargetList().forEachIndexed { idx, targetRecord ->
+            val blockPost = targetRecord.target
             matrices.pushPop {
                 matrices.translate(0f, (idx * 0.01f), 0f)
                 matrices.multiply(
                     RotationAxis.POSITIVE_Y.rotationDegrees(
                         getArrowAngle(
                             entity,
-                            targetRecord.target
+                            blockPost
                         )
                     )
                 )
@@ -103,26 +102,35 @@ object ResourceFinderClient : ClientModInitializer {
                 )
             }
 
-            matrices.pushPop {
-                if(isHigher(entity, targetRecord.target)) {
-                    matrices.translate(0f, 0f, -idx * 0.014f)
-                } else {
-                    matrices.multiply(
-                        RotationAxis.POSITIVE_Y.rotation(Math.PI.toFloat())
-                    )
-                    matrices.translate(0f, 0f, -idx * 0.014f)
+            if(mode != ModelTransformationMode.GUI) {
+                matrices.pushPop {
+                    val renderIndicator = when {
+                        entity.blockPos.y > blockPost.y -> {
+                            matrices.translate(0f, 0f, - ++topIdx * 0.013f)
+                            true
+                        }
+                        entity.blockPos.y < blockPost.y -> {
+                            matrices.multiply(
+                                RotationAxis.POSITIVE_Y.rotation(Math.PI.toFloat())
+                            )
+                            matrices.translate(0f, 0f, - ++botIdx * 0.013f)
+                            true
+                        }
+                        else -> false
+                    }
+                    if(renderIndicator) {
+                        renderer.renderItem(
+                            indicatorFromColor(targetRecord.resourceEntry.color),
+                            ModelTransformationMode.NONE,
+                            light,
+                            overlay,
+                            matrices,
+                            vertexConsumers,
+                            null,
+                            0
+                        )
+                    }
                 }
-
-                renderer.renderItem(
-                    indicatorFromColor(targetRecord.resourceEntry.color),
-                    ModelTransformationMode.NONE,
-                    light,
-                    overlay,
-                    matrices,
-                    vertexConsumers,
-                    null,
-                    0
-                )
             }
         }
     }
@@ -195,6 +203,7 @@ object ResourceFinderClient : ClientModInitializer {
                         stack,
                         matrices,
                         vertexConsumers,
+                        mode,
                         light,
                         overlay,
                         renderer
