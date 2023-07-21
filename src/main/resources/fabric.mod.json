@@ -35,11 +35,6 @@
     ]
   },
   "mixins": [
-    "cool-resource-finder.mixins.json",
-    {
-      "config": "cool-resource-finder.client.mixins.json",
-      "environment": "client"
-    }
   ],
   "depends": {
     "fabricloader": ">=0.14.21",

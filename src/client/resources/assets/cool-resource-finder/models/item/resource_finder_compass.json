@@ -89,5 +89,8 @@
         -7.25
       ]
     }
-  }
+  },
+  "overrides": [
+    { "predicate": { "hack": 100.0 }, "model": "item/generated" }
+  ]
 }

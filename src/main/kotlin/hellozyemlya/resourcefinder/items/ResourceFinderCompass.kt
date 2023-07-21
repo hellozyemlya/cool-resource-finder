@@ -50,6 +50,14 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
 
 
     override fun inventoryTick(stack: ItemStack?, world: World?, entity: Entity, slot: Int, selected: Boolean) {
+        if(world != null && stack != null) {
+            if(world.isClient) {
+                println("client tick   ${System.identityHashCode(stack)} selected: $selected")
+            } else {
+                println("server tick   ${System.identityHashCode(stack)} selected: $selected")
+            }
+        }
+
         if (selected && stack != null && world != null) {
             if (!world.isClient) {
                 val scanList = stack.getScanList()
