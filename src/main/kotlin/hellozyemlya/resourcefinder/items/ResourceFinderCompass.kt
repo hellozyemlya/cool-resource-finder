@@ -26,6 +26,7 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
         oldStack: ItemStack?,
         newStack: ItemStack?
     ): Boolean {
+        superPuperMethod()
         return false
     }
 
