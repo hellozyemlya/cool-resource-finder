@@ -1,5 +1,6 @@
 package hellozyemlya.resourcefinder.items.recipes
 
+import com.google.common.collect.Streams
 import hellozyemlya.resourcefinder.ResourceFinder
 import hellozyemlya.resourcefinder.items.ScanRecord
 import hellozyemlya.resourcefinder.items.getScanList
@@ -13,6 +14,9 @@ import net.minecraft.registry.DynamicRegistryManager
 import net.minecraft.util.Identifier
 import net.minecraft.util.collection.DefaultedList
 import net.minecraft.world.World
+import java.util.stream.Collectors
+
+const val MAX_SCAN_CHARGES: Int = 5
 
 class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategory) : SpecialCraftingRecipe(
     id,
@@ -41,24 +45,33 @@ class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategor
     }
 
     override fun matches(inventory: RecipeInputInventory, world: World?): Boolean {
-        var hasCompass = false
-        var hasOtherResources = false
+        var compassStack: ItemStack? = null
+        val charges = ArrayList<ItemStack>()
 
         for (i in 0 until inventory.size()) {
             val curStack = inventory.getStack(i)
             if (!curStack.isEmpty) {
                 if (curStack.isOf(ResourceFinder.RESOURCE_FINDER_ITEM)) {
-                    hasCompass = true
+                    compassStack = curStack
                 } else {
                     if (!ResourceRegistry.INSTANCE.canBeChargedBy(curStack.item)) {
                         return false
                     }
-                    hasOtherResources = true
+                    charges.add(curStack)
                 }
             }
         }
 
-        return hasCompass && hasOtherResources
+        if(compassStack != null && charges.size > 0) {
+            val estimatedChargesCount =
+                Streams.concat(
+                    compassStack.getScanList().stream().map { it.key },
+                    charges.stream().map { ResourceRegistry.INSTANCE.getByChargingItem(it.item).group }
+                ).collect(Collectors.toSet()).size
+            return estimatedChargesCount <= MAX_SCAN_CHARGES
+        }
+
+        return false
     }
 
     override fun craft(inventory: RecipeInputInventory, registryManager: DynamicRegistryManager?): ItemStack {
