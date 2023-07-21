@@ -23,6 +23,8 @@ import net.minecraft.util.math.BlockPos
 import net.minecraft.util.math.MathHelper
 import net.minecraft.util.math.RotationAxis
 import net.minecraft.util.math.Vec3d
+import kotlin.contracts.ExperimentalContracts
+import kotlin.contracts.contract
 import kotlin.math.atan2
 
 object ResourceFinderClient : ClientModInitializer {
@@ -35,31 +37,6 @@ object ResourceFinderClient : ClientModInitializer {
 
     private var quadColorOverride: Int = -1
     private var lastEntity: LivingEntity? = null
-
-//    private val arrowsCache: MutableMap<Int, ItemStack> = HashMap()
-//    private val indicatorsCache: MutableMap<Int, ItemStack> = HashMap()
-//
-//    private fun arrowFromColor(color: Int): ItemStack {
-//        return if (arrowsCache.containsKey(color)) {
-//            arrowsCache[color]!!
-//        } else {
-//            val arrowStack = Items.DIAMOND.defaultStack
-//            arrowStack.orCreateNbt.putInt("color", color)
-//            arrowsCache[color] = arrowStack
-//            arrowStack
-//        }
-//    }
-//
-//    private fun indicatorFromColor(color: Int): ItemStack {
-//        return if (indicatorsCache.containsKey(color)) {
-//            indicatorsCache[color]!!
-//        } else {
-//            val indicatorStack = Items.DIAMOND.defaultStack
-//            indicatorStack.orCreateNbt.putInt("color", color)
-//            indicatorsCache[color] = indicatorStack
-//            indicatorStack
-//        }
-//    }
 
     private fun getAngleTo(entity: Entity, pos: BlockPos): Double {
         val vec3d = Vec3d.ofCenter(pos)
@@ -82,7 +59,7 @@ object ResourceFinderClient : ClientModInitializer {
         return 180f - (360f * a)
     }
 
-    private fun renderArrowsOnEntity(
+    private fun renderPositionedArrows(
             entity: LivingEntity,
             stack: ItemStack,
             matrices: MatrixStack,
@@ -107,7 +84,7 @@ object ResourceFinderClient : ClientModInitializer {
                                 )
                         )
                 )
-                // TODO set color somehow here
+
                 renderer.renderItem(
                         stack,
                         ModelTransformationMode.NONE,
@@ -183,74 +160,89 @@ object ResourceFinderClient : ClientModInitializer {
         }
     }
 
+    private fun renderCompass(stack: ItemStack, mode: ModelTransformationMode, matrices: MatrixStack, vertexConsumers: VertexConsumerProvider, light: Int, overlay: Int) {
+        val renderer = MinecraftClient.getInstance().itemRenderer
+
+        // reset quad color
+        quadColorOverride = -1
+
+        // reset matrices translated by ItemRenderer
+        matrices.translate(0.5f, 0.5f, 0.5f)
+
+        // render compass base model
+        renderer.renderItem(
+                stack,
+                ModelTransformationMode.NONE,
+                false,
+                matrices,
+                vertexConsumers,
+                light,
+                overlay,
+                MinecraftClient.getInstance().bakedModelManager.getModel(BASE_MODEL_ID)
+        )
+
+        val entity = lastEntity
+
+        if (renderPositionedArrows(mode, entity, stack)) {
+            renderPositionedArrows(
+                    entity,
+                    stack,
+                    matrices,
+                    vertexConsumers,
+                    mode,
+                    light,
+                    overlay,
+                    renderer
+            )
+        } else {
+            renderArrowsPreview(stack, matrices, vertexConsumers, light, overlay, renderer)
+        }
+    }
+
+    @OptIn(ExperimentalContracts::class)
+    private fun renderPositionedArrows(mode: ModelTransformationMode, entity: LivingEntity?, stack: ItemStack): Boolean {
+        contract {
+            returns(true) implies (entity != null)
+        }
+
+        return when (mode) {
+            ModelTransformationMode.FIRST_PERSON_RIGHT_HAND, ModelTransformationMode.FIRST_PERSON_LEFT_HAND, ModelTransformationMode.HEAD, ModelTransformationMode.THIRD_PERSON_LEFT_HAND, ModelTransformationMode.THIRD_PERSON_RIGHT_HAND -> {
+                entity != null
+            }
+
+            ModelTransformationMode.GUI -> {
+                if (entity != null) {
+                    entity.mainHandStack === stack || entity.offHandStack === stack
+                } else {
+                    false
+                }
+            }
+
+            else -> {
+                false
+            }
+        }
+    }
+
     override fun onInitializeClient() {
+        // load compass parts models
         ModelLoadingPlugin.register { ctx ->
             ctx.addModels(BASE_MODEL_ID, INDICATOR_MODEL_ID, ARROW_MODEL_ID)
         }
 
         // capture LivingEntity
-        ModelPredicateProviderRegistry.register(ResourceFinder.RESOURCE_FINDER_ITEM, Identifier("hack")) { itemStack: ItemStack, clientWorld: ClientWorld?, livingEntity: LivingEntity?, seed: Int ->
+        ModelPredicateProviderRegistry.register(ResourceFinder.RESOURCE_FINDER_ITEM, Identifier("hack")) { _: ItemStack, _: ClientWorld?, livingEntity: LivingEntity?, _: Int ->
             lastEntity = livingEntity
             0f
         }
 
         // override quad colors
         ColorProviderRegistry.ITEM.register(
-                { itemStack: ItemStack, i: Int -> quadColorOverride },
+                { _: ItemStack, _: Int -> quadColorOverride },
                 ResourceFinder.RESOURCE_FINDER_ITEM
         )
 
-        BuiltinItemRendererRegistry.INSTANCE.register(ResourceFinder.RESOURCE_FINDER_ITEM) { stack: ItemStack, mode: ModelTransformationMode, matrices: MatrixStack, vertexConsumers: VertexConsumerProvider, light: Int, overlay: Int ->
-            val renderer = MinecraftClient.getInstance().itemRenderer
-
-            quadColorOverride = -1
-
-            matrices.translate(0.5f, 0.5f, 0.5f)
-            renderer.renderItem(
-                    stack,
-                    ModelTransformationMode.NONE,
-                    false,
-                    matrices,
-                    vertexConsumers,
-                    light,
-                    overlay,
-                    MinecraftClient.getInstance().bakedModelManager.getModel(BASE_MODEL_ID)
-            )
-
-            val entity = lastEntity
-
-            if (entity == null) {
-                renderArrowsPreview(stack, matrices, vertexConsumers, light, overlay, renderer)
-            } else {
-                val renderWithEntity = when (mode) {
-                    ModelTransformationMode.FIRST_PERSON_RIGHT_HAND, ModelTransformationMode.FIRST_PERSON_LEFT_HAND, ModelTransformationMode.HEAD, ModelTransformationMode.THIRD_PERSON_LEFT_HAND, ModelTransformationMode.THIRD_PERSON_RIGHT_HAND -> {
-                        true
-                    }
-
-                    ModelTransformationMode.GUI -> {
-                        entity.mainHandStack === stack || entity.offHandStack === stack
-                    }
-
-                    else -> {
-                        false
-                    }
-                }
-
-                if (renderWithEntity) {
-                    renderArrowsOnEntity(
-                            entity,
-                            stack,
-                            matrices,
-                            vertexConsumers,
-                            mode,
-                            light,
-                            overlay,
-                            renderer
-                    )
-                } else {
-                    renderArrowsPreview(stack, matrices, vertexConsumers, light, overlay, renderer)
-                }
-            }
-        }
+        // use custom render function for compass
+        BuiltinItemRendererRegistry.INSTANCE.register(ResourceFinder.RESOURCE_FINDER_ITEM, ::renderCompass)
     }
 }
