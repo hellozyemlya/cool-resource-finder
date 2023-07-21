@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "id": "hellozyemlya-commons",
+  "version": "${version}",
+  "name": "hellozyemlya Common Library",
+  "description": "Special compass that allows to locate resources.",
+  "authors": [
+    "https://github.com/hellozyemlya"
+  ],
+  "contact": {
+    "homepage": "https://github.com/hellozyemlya/cool-resource-finder",
+    "sources": "https://github.com/hellozyemlya/cool-resource-finder"
+  },
+  "license": "CC0-1.0",
+  "icon": "assets/cool-resource-finder/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      {
+        "value": "hellozyemlya.commons.CommonsEntry"
+      }
+    ],
+    "client": [
+      {
+        "value": "hellozyemlya.commons.ClientCommonsEntry"
+      }
+    ]
+  },
+  "mixins": [
+    "hellozyemlya-commons.mixins.json",
+    {
+      "config": "hellozyemlya-commons.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=0.14.21",
+    "minecraft": "~1.20.1",
+    "java": ">=17",
+    "fabric-api": "*",
+    "fabric-language-kotlin": ">=1.9.0"
+  },
+  "suggests": {
+    "another-mod": "*"
+  },
+  "custom": {
+    "loom:injected_interfaces": {
+      "net/minecraft/class_1792": ["hellozyemlya/commons/ItemSuperPuperExtension"]
+    }
+  }
+}
