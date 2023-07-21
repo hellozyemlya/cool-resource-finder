@@ -6,7 +6,6 @@ import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.item.v1.FabricItemSettings
 import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents
-import net.minecraft.item.Item
 import net.minecraft.item.ItemGroup
 import net.minecraft.item.ItemStack
 import net.minecraft.recipe.SpecialRecipeSerializer
@@ -26,21 +25,6 @@ object ResourceFinder : ModInitializer {
     val RESOURCE_FINDER_ITEM: ResourceFinderCompass = Registry.register(
             Registries.ITEM, Identifier(MOD_NAMESPACE, "resource_finder_compass"),
             ResourceFinderCompass(FabricItemSettings().maxCount(1))
-    )
-
-    val RESOURCE_FINDER_ARROW_ITEM: Item = Registry.register(
-            Registries.ITEM, Identifier(MOD_NAMESPACE, "resource_finder_compass_arrow"),
-            Item(FabricItemSettings())
-    )
-
-    val RESOURCE_FINDER_BASE_ITEM: Item = Registry.register(
-            Registries.ITEM, Identifier(MOD_NAMESPACE, "resource_finder_compass_base"),
-            Item(FabricItemSettings())
-    )
-
-    val RESOURCE_FINDER_INDICATOR_ITEM: Item = Registry.register(
-            Registries.ITEM, Identifier(MOD_NAMESPACE, "resource_finder_compass_indicator"),
-            Item(FabricItemSettings())
     )
 
     val RESOURCE_FINDER_GROUP_KEY = RegistryKey.of(RegistryKeys.ITEM_GROUP, Identifier(MOD_NAMESPACE, "resource_finder"))
