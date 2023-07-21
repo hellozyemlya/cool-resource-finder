@@ -1,12 +1,12 @@
 package hellozyemlya.resourcefinder.mixin.client;
 
-import hellozyemlya.resourcefinder.TracksRenderLivingEntity;
+import hellozyemlya.resourcefinder.common.mixin.Item$TracksRenderLivingEntity;
 import net.minecraft.item.Item;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 
 @Mixin(Item.class)
-public class ItemMixin implements TracksRenderLivingEntity {
+public class ItemMixin implements Item$TracksRenderLivingEntity {
     @Unique
     private boolean tracksLivingEntity = false;
 

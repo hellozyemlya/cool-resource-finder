@@ -21,10 +21,10 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
     }
 
     override fun allowNbtUpdateAnimation(
-            player: PlayerEntity?,
-            hand: Hand?,
-            oldStack: ItemStack?,
-            newStack: ItemStack?
+        player: PlayerEntity?,
+        hand: Hand?,
+        oldStack: ItemStack?,
+        newStack: ItemStack?
     ): Boolean {
         return false
     }
@@ -32,18 +32,18 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
     override fun appendTooltip(stack: ItemStack, world: World?, tooltip: MutableList<Text?>, context: TooltipContext?) {
         stack.getScanList().forEach {
             val blockName = Texts.setStyleIfAbsent(
-                    it.key.name.copyContentOnly(),
-                    Style.EMPTY.withColor(TextColor.fromRgb(it.color))
+                it.key.name.copyContentOnly(),
+                Style.EMPTY.withColor(TextColor.fromRgb(it.color))
             )
             tooltip.add(
-                    Texts.join(
-                            mutableListOf(
-                                    ResourceFinderTexts.SCAN_FOR,
-                                    blockName,
-                                    ResourceFinderTexts.SCAN_JOIN,
-                                    Text.of(StringHelper.formatTicks(it.lifetime))
-                            ), Text.of(" ")
-                    )
+                Texts.join(
+                    mutableListOf(
+                        ResourceFinderTexts.SCAN_FOR,
+                        blockName,
+                        ResourceFinderTexts.SCAN_JOIN,
+                        Text.of(StringHelper.formatTicks(it.lifetime))
+                    ), Text.of(" ")
+                )
             )
         }
     }

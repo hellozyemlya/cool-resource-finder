@@ -23,29 +23,33 @@ object ResourceFinder : ModInitializer {
     public const val MOD_NAMESPACE = "cool-resource-finder"
 
     val RESOURCE_FINDER_ITEM: ResourceFinderCompass = Registry.register(
-            Registries.ITEM, Identifier(MOD_NAMESPACE, "resource_finder_compass"),
-            ResourceFinderCompass(FabricItemSettings().maxCount(1))
+        Registries.ITEM, Identifier(MOD_NAMESPACE, "resource_finder_compass"),
+        ResourceFinderCompass(FabricItemSettings().maxCount(1))
     )
 
-    val RESOURCE_FINDER_GROUP_KEY = RegistryKey.of(RegistryKeys.ITEM_GROUP, Identifier(MOD_NAMESPACE, "resource_finder"))
+    val RESOURCE_FINDER_GROUP_KEY =
+        RegistryKey.of(RegistryKeys.ITEM_GROUP, Identifier(MOD_NAMESPACE, "resource_finder"))
 
     public val RESOURCE_FINDER_GROUP: ItemGroup = Registry.register(Registries.ITEM_GROUP,
-            RESOURCE_FINDER_GROUP_KEY,
-            FabricItemGroup.builder()
-                    .icon { ItemStack(RESOURCE_FINDER_ITEM) }
-                    .displayName(Text.translatable("itemGroup.$MOD_NAMESPACE.resource_finder_group"))
-                    .build())
+        RESOURCE_FINDER_GROUP_KEY,
+        FabricItemGroup.builder()
+            .icon { ItemStack(RESOURCE_FINDER_ITEM) }
+            .displayName(Text.translatable("itemGroup.$MOD_NAMESPACE.resource_finder_group"))
+            .build())
 
 
-    final val RESOURCE_FINDER_REPAIR_SERIALIZER = Registry.register(Registries.RECIPE_SERIALIZER, Identifier(MOD_NAMESPACE, "crafting_special_resource_finder_charge"), SpecialRecipeSerializer { id, category ->
-        ResourceFinderChargeRecipe(
+    final val RESOURCE_FINDER_REPAIR_SERIALIZER = Registry.register(
+        Registries.RECIPE_SERIALIZER,
+        Identifier(MOD_NAMESPACE, "crafting_special_resource_finder_charge"),
+        SpecialRecipeSerializer { id, category ->
+            ResourceFinderChargeRecipe(
                 id,
                 category
-        )
-    })
+            )
+        })
 
     override fun onInitialize() {
         ItemGroupEvents.modifyEntriesEvent(RESOURCE_FINDER_GROUP_KEY)
-                .register { content -> content.add(RESOURCE_FINDER_ITEM) }
+            .register { content -> content.add(RESOURCE_FINDER_ITEM) }
     }
 }

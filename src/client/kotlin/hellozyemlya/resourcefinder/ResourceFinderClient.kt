@@ -1,6 +1,9 @@
 package hellozyemlya.resourcefinder
 
 import hellozyemlya.common.pushPop
+import hellozyemlya.common.withQuadsColor
+import hellozyemlya.resourcefinder.common.mixin.`Item$TracksRenderLivingEntity`
+import hellozyemlya.resourcefinder.common.mixin.`ItemStack$WithRenderLivingEntityList`
 import hellozyemlya.resourcefinder.items.getScanList
 import hellozyemlya.resourcefinder.items.getTargetList
 import net.fabricmc.api.ClientModInitializer
@@ -15,7 +18,6 @@ import net.minecraft.client.util.math.MatrixStack
 import net.minecraft.entity.Entity
 import net.minecraft.entity.LivingEntity
 import net.minecraft.item.ItemStack
-import net.minecraft.item.Items
 import net.minecraft.util.Identifier
 import net.minecraft.util.math.BlockPos
 import net.minecraft.util.math.MathHelper
@@ -26,41 +28,36 @@ import kotlin.math.atan2
 object ResourceFinderClient : ClientModInitializer {
     private val ARROW_ITEM_ID = Identifier(ResourceFinder.MOD_NAMESPACE, "resource_finder_compass_arrow")
     private val ARROW_MODEL_ID = ModelIdentifier(ARROW_ITEM_ID, "inventory")
-
-    //    private val ARROW_FAKE_ITEM = Item(FabricItemSettings())
     private val BASE_ITEM_ID = Identifier(ResourceFinder.MOD_NAMESPACE, "resource_finder_compass_base")
     private val BASE_MODEL_ID = ModelIdentifier(BASE_ITEM_ID, "inventory")
-
-    //    private val BASE_FAKE_ITEM = Item(FabricItemSettings())
     private val INDICATOR_ITEM_ID = Identifier(ResourceFinder.MOD_NAMESPACE, "resource_finder_compass_indicator")
     private val INDICATOR_MODEL_ID = ModelIdentifier(INDICATOR_ITEM_ID, "inventory")
-//    private val INDICATOR_FAKE_ITEM = Item(FabricItemSettings())
 
 
-    private val arrowsCache: MutableMap<Int, ItemStack> = HashMap()
-    private val indicatorsCache: MutableMap<Int, ItemStack> = HashMap()
-
-    private fun arrowFromColor(color: Int): ItemStack {
-        return if (arrowsCache.containsKey(color)) {
-            arrowsCache[color]!!
-        } else {
-            val arrowStack = Items.DIAMOND.defaultStack
-            arrowStack.orCreateNbt.putInt("color", color)
-            arrowsCache[color] = arrowStack
-            arrowStack
-        }
-    }
-
-    private fun indicatorFromColor(color: Int): ItemStack {
-        return if (indicatorsCache.containsKey(color)) {
-            indicatorsCache[color]!!
-        } else {
-            val indicatorStack = Items.DIAMOND.defaultStack
-            indicatorStack.orCreateNbt.putInt("color", color)
-            indicatorsCache[color] = indicatorStack
-            indicatorStack
-        }
-    }
+//    private val arrowsCache: MutableMap<Int, ItemStack> = HashMap()
+//    private val indicatorsCache: MutableMap<Int, ItemStack> = HashMap()
+//
+//    private fun arrowFromColor(color: Int): ItemStack {
+//        return if (arrowsCache.containsKey(color)) {
+//            arrowsCache[color]!!
+//        } else {
+//            val arrowStack = Items.DIAMOND.defaultStack
+//            arrowStack.orCreateNbt.putInt("color", color)
+//            arrowsCache[color] = arrowStack
+//            arrowStack
+//        }
+//    }
+//
+//    private fun indicatorFromColor(color: Int): ItemStack {
+//        return if (indicatorsCache.containsKey(color)) {
+//            indicatorsCache[color]!!
+//        } else {
+//            val indicatorStack = Items.DIAMOND.defaultStack
+//            indicatorStack.orCreateNbt.putInt("color", color)
+//            indicatorsCache[color] = indicatorStack
+//            indicatorStack
+//        }
+//    }
 
     private fun getAngleTo(entity: Entity, pos: BlockPos): Double {
         val vec3d = Vec3d.ofCenter(pos)
@@ -84,32 +81,33 @@ object ResourceFinderClient : ClientModInitializer {
     }
 
     private fun renderArrowsOnEntity(
-            entity: LivingEntity,
-            stack: ItemStack,
-            matrices: MatrixStack,
-            vertexConsumers: VertexConsumerProvider,
-            mode: ModelTransformationMode,
-            light: Int,
-            overlay: Int,
-            renderer: ItemRenderer
+        entity: LivingEntity,
+        stack: ItemStack,
+        matrices: MatrixStack,
+        vertexConsumers: VertexConsumerProvider,
+        mode: ModelTransformationMode,
+        light: Int,
+        overlay: Int,
+        renderer: ItemRenderer
     ) {
         var topIdx = -1
         var botIdx = -1
         stack.getTargetList().forEachIndexed { idx, targetRecord ->
-            val blockPost = targetRecord.target
-            matrices.pushPop {
-                matrices.translate(0f, (idx * 0.01f), 0f)
-                matrices.multiply(
+            withQuadsColor(targetRecord.color) {
+                val blockPost = targetRecord.target
+                matrices.pushPop {
+                    matrices.translate(0f, (idx * 0.01f), 0f)
+                    matrices.multiply(
                         RotationAxis.POSITIVE_Y.rotationDegrees(
-                                getArrowAngle(
-                                        entity,
-                                        blockPost
-                                )
+                            getArrowAngle(
+                                entity,
+                                blockPost
+                            )
                         )
-                )
-
-                renderer.renderItem(
-                        arrowFromColor(targetRecord.color),
+                    )
+                    // TODO set color somehow here
+                    renderer.renderItem(
+                        stack,
                         ModelTransformationMode.NONE,
                         false,
                         matrices,
@@ -117,30 +115,31 @@ object ResourceFinderClient : ClientModInitializer {
                         light,
                         overlay,
                         MinecraftClient.getInstance().bakedModelManager.getModel(ARROW_MODEL_ID)
-                )
-            }
+                    )
+                }
 
-            if (mode != ModelTransformationMode.GUI) {
-                matrices.pushPop {
-                    val renderIndicator = when {
-                        entity.blockPos.y > blockPost.y -> {
-                            matrices.translate(0f, 0f, -++topIdx * 0.013f)
-                            true
-                        }
+                if (mode != ModelTransformationMode.GUI) {
+                    matrices.pushPop {
+                        val renderIndicator = when {
+                            entity.blockPos.y > blockPost.y -> {
+                                matrices.translate(0f, 0f, -++topIdx * 0.013f)
+                                true
+                            }
 
-                        entity.blockPos.y < blockPost.y -> {
-                            matrices.multiply(
+                            entity.blockPos.y < blockPost.y -> {
+                                matrices.multiply(
                                     RotationAxis.POSITIVE_Y.rotation(Math.PI.toFloat())
-                            )
-                            matrices.translate(0f, 0f, -++botIdx * 0.013f)
-                            true
-                        }
+                                )
+                                matrices.translate(0f, 0f, -++botIdx * 0.013f)
+                                true
+                            }
 
-                        else -> false
-                    }
-                    if (renderIndicator) {
-                        renderer.renderItem(
-                                indicatorFromColor(targetRecord.color),
+                            else -> false
+                        }
+                        if (renderIndicator) {
+                            // TODO set color somehow here
+                            renderer.renderItem(
+                                stack,
                                 ModelTransformationMode.NONE,
                                 false,
                                 matrices,
@@ -148,27 +147,31 @@ object ResourceFinderClient : ClientModInitializer {
                                 light,
                                 overlay,
                                 MinecraftClient.getInstance().bakedModelManager.getModel(INDICATOR_MODEL_ID)
-                        )
+                            )
+                        }
                     }
                 }
             }
+
         }
     }
 
     private fun renderArrowsPreview(
-            stack: ItemStack,
-            matrices: MatrixStack,
-            vertexConsumers: VertexConsumerProvider,
-            light: Int,
-            overlay: Int,
-            renderer: ItemRenderer
+        stack: ItemStack,
+        matrices: MatrixStack,
+        vertexConsumers: VertexConsumerProvider,
+        light: Int,
+        overlay: Int,
+        renderer: ItemRenderer
     ) {
         stack.getScanList().forEachIndexed { idx, scanRecord ->
-            matrices.push()
-            matrices.translate(0f, (idx * 0.01f), 0f)
-            matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(25f * idx))
-            renderer.renderItem(
-                    arrowFromColor(scanRecord.color),
+            withQuadsColor(scanRecord.color) {
+                matrices.push()
+                matrices.translate(0f, (idx * 0.01f), 0f)
+                matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(25f * idx))
+                // TODO set color here somehow
+                renderer.renderItem(
+                    stack,
                     ModelTransformationMode.NONE,
                     false,
                     matrices,
@@ -176,8 +179,9 @@ object ResourceFinderClient : ClientModInitializer {
                     light,
                     overlay,
                     MinecraftClient.getInstance().bakedModelManager.getModel(ARROW_MODEL_ID)
-            )
-            matrices.pop()
+                )
+                matrices.pop()
+            }
         }
     }
 
@@ -190,17 +194,17 @@ object ResourceFinderClient : ClientModInitializer {
 
             matrices.translate(0.5f, 0.5f, 0.5f)
             renderer.renderItem(
-                    Items.DIAMOND.defaultStack,
-                    ModelTransformationMode.NONE,
-                    false,
-                    matrices,
-                    vertexConsumers,
-                    light,
-                    overlay,
-                    MinecraftClient.getInstance().bakedModelManager.getModel(BASE_MODEL_ID)
+                stack,
+                ModelTransformationMode.NONE,
+                false,
+                matrices,
+                vertexConsumers,
+                light,
+                overlay,
+                MinecraftClient.getInstance().bakedModelManager.getModel(BASE_MODEL_ID)
             )
 
-            val renderEntities = ItemStackWithRenderLivingEntityList.getRenderLivingEntityList(stack)
+            val renderEntities = `ItemStack$WithRenderLivingEntityList`.getRenderLivingEntityList(stack)
 
             if (renderEntities.isEmpty) {
                 renderArrowsPreview(stack, matrices, vertexConsumers, light, overlay, renderer)
@@ -222,14 +226,14 @@ object ResourceFinderClient : ClientModInitializer {
 
                 if (renderWithEntity) {
                     renderArrowsOnEntity(
-                            renderEntities.top(),
-                            stack,
-                            matrices,
-                            vertexConsumers,
-                            mode,
-                            light,
-                            overlay,
-                            renderer
+                        renderEntities.top(),
+                        stack,
+                        matrices,
+                        vertexConsumers,
+                        mode,
+                        light,
+                        overlay,
+                        renderer
                     )
                 } else {
                     renderArrowsPreview(stack, matrices, vertexConsumers, light, overlay, renderer)
@@ -237,16 +241,6 @@ object ResourceFinderClient : ClientModInitializer {
             }
         }
 
-//        ColorProviderRegistry.ITEM.register(
-//                { stack, _ -> stack.orCreateNbt.getInt("color") },
-//                Items.AIR
-//        )
-//
-//        ColorProviderRegistry.ITEM.register(
-//                { stack, _ -> stack.orCreateNbt.getInt("color") },
-//                Items.AIR
-//        )
-
-        TracksRenderLivingEntity.setTracksRenderLivingEntity(ResourceFinder.RESOURCE_FINDER_ITEM, true)
+        `Item$TracksRenderLivingEntity`.setTracksRenderLivingEntity(ResourceFinder.RESOURCE_FINDER_ITEM, true)
     }
 }

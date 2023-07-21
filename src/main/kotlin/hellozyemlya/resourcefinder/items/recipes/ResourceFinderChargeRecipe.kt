@@ -15,8 +15,8 @@ import net.minecraft.util.collection.DefaultedList
 import net.minecraft.world.World
 
 class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategory) : SpecialCraftingRecipe(
-        id,
-        category
+    id,
+    category
 ) {
     private fun getRecipeItems(inventory: RecipeInputInventory): Pair<ItemStack, ArrayList<ItemStack>> {
         var compass: ItemStack? = null
