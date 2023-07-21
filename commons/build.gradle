@@ -6,12 +6,22 @@ base {
 }
 
 loom {
-    splitEnvironmentSourceSets()
-
     mods {
         "hellozyemlya-commons" {
             sourceSet sourceSets.main
             sourceSet sourceSets.client
+        }
+    }
+    runs {
+        runCommonsClient {
+            client()
+            ideConfigGenerated = true
+            name = "Commons Client"
+        }
+        runCommonsServer {
+            server()
+            ideConfigGenerated = true
+            name = "Commons Server"
         }
     }
 }

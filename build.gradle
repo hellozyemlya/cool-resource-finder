@@ -46,6 +46,12 @@ allprojects {
     }
 }
 
+subprojects {
+    loom {
+        splitEnvironmentSourceSets()
+    }
+}
+
 version = project.mod_version
 group = project.maven_group
 
@@ -72,6 +78,16 @@ loom {
             vmArg "-Dfabric-api.datagen.modid=cool-resource-finder"
 
             runDir "build/datagen"
+        }
+        runRootClient {
+            client()
+            ideConfigGenerated = true
+            name = "Root Client"
+        }
+        runRootServer {
+            server()
+            ideConfigGenerated = true
+            name = "Root Server"
         }
     }
 }
