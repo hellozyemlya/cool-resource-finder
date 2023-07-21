@@ -126,7 +126,7 @@ publishing {
 modrinth {
     token = System.getenv("MODRINTH_TOKEN")
     projectId = "eKgd4diD"
-    versionNumber = "0.0.1"
+    versionNumber = version
     versionType = "alpha"
     uploadFile = remapJar
     gameVersions = ["1.20.1"]
