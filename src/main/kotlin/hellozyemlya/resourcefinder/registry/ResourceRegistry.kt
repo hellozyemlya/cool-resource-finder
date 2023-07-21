@@ -81,7 +81,7 @@ class ResourceRegistry private constructor() {
             addGroup(
                 Items.IRON_INGOT,
                 0xD8D8D8,
-                listOf(Blocks.IRON_ORE, Blocks.DEEPSLATE_IRON_ORE, Blocks.RAW_IRON_BLOCK, Blocks.RAW_IRON_BLOCK),
+                listOf(Blocks.IRON_ORE, Blocks.DEEPSLATE_IRON_ORE, Blocks.RAW_IRON_BLOCK),
                 listOf(
                     ChargeItem(Items.IRON_BLOCK, 10800),
                     ChargeItem(Items.IRON_INGOT, 1200),
@@ -126,6 +126,24 @@ class ResourceRegistry private constructor() {
                     ChargeItem(Items.NETHERITE_BLOCK, 10800),
                     ChargeItem(Items.NETHERITE_INGOT, 1200),
                     ChargeItem(Items.NETHERITE_SCRAP, 300)
+                )
+            )
+            addGroup(
+                Items.LAPIS_LAZULI,
+                0x345EC3,
+                listOf(Blocks.LAPIS_ORE, Blocks.DEEPSLATE_LAPIS_ORE),
+                listOf(
+                    ChargeItem(Items.LAPIS_BLOCK, 10800),
+                    ChargeItem(Items.LAPIS_LAZULI, 1200)
+                )
+            )
+            addGroup(
+                Items.QUARTZ,
+                0xB6A48E,
+                listOf(Blocks.NETHER_QUARTZ_ORE),
+                listOf(
+                    ChargeItem(Items.QUARTZ_BLOCK, 10800),
+                    ChargeItem(Items.QUARTZ, 2700)
                 )
             )
         }

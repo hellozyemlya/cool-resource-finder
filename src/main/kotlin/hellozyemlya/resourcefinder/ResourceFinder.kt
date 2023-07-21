@@ -2,6 +2,7 @@ package hellozyemlya.resourcefinder
 
 import hellozyemlya.resourcefinder.items.ResourceFinderCompass
 import hellozyemlya.resourcefinder.items.recipes.ResourceFinderChargeRecipe
+import hellozyemlya.resourcefinder.registry.ResourceRegistry
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.item.v1.FabricItemSettings
 import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup
@@ -51,5 +52,6 @@ object ResourceFinder : ModInitializer {
     override fun onInitialize() {
         ItemGroupEvents.modifyEntriesEvent(RESOURCE_FINDER_GROUP_KEY)
             .register { content -> content.add(RESOURCE_FINDER_ITEM) }
+        LOGGER.info("'Cool Resource Finder' scans for ${ResourceRegistry.INSTANCE.groups.count()} resource groups.")
     }
 }
