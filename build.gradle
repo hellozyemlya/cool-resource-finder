@@ -9,7 +9,6 @@ version = "1.0.0"
 group = "junk"
 
 
-
 subprojects {
     apply plugin: 'fabric-loom'
     apply plugin: 'maven-publish'
@@ -27,6 +26,19 @@ subprojects {
 
     loom {
         splitEnvironmentSourceSets()
+
+        runs {
+            // This adds a new gradle task that runs the datagen API: "gradlew runDatagen"
+            datagen {
+                inherit server
+                name "Data Generation"
+                vmArg "-Dfabric-api.datagen"
+                vmArg "-Dfabric-api.datagen.output-dir=${file("src/main/generated-${project.name}")}"
+                vmArg "-Dfabric-api.datagen.modid=cool-resource-finder"
+
+                runDir "build/datagen"
+            }
+        }
     }
 
     processResources {
@@ -71,33 +83,43 @@ subprojects {
         }
     }
 
-    def sourceFolder = "src" + "${project.name}".substring(2)
+    sourceSets {
+        main {
+            resources {
+                srcDirs += [
+                        "src/main/generated-${project.name}"
+                ]
+            }
+        }
+    }
 
+    def sourcesRoot = "${rootProject.projectDir}/common/${project.name}"
 
     sourceSets {
         main {
             java {
-                srcDirs += file("../${sourceFolder}/main/java")
+                srcDirs += file("${sourcesRoot}/main/java")
             }
             kotlin {
-                srcDirs += file("../${sourceFolder}/main/kotlin")
+                srcDirs += file("${sourcesRoot}/main/kotlin")
             }
             resources {
-                srcDirs += file("../${sourceFolder}/main/resources")
+                srcDirs += file("${sourcesRoot}/main/resources")
             }
         }
         client {
             java {
-                srcDirs += file("../${sourceFolder}/client/java")
+                srcDirs += file("${sourcesRoot}/client/java")
             }
             kotlin {
-                srcDirs += file("../${sourceFolder}/client/kotlin")
+                srcDirs += file("${sourcesRoot}/client/kotlin")
             }
             resources {
-                srcDirs += file("../${sourceFolder}/client/resources")
+                srcDirs += file("${sourcesRoot}/client/resources")
             }
         }
 
+        // deal with incremental build(disable it)
         tasks.compileKotlin {
             inputs.property("dummy", System.currentTimeMillis())
         }
@@ -123,18 +145,16 @@ subprojects {
         }
     }
 
+    modrinth {
+        token = System.getenv("MODRINTH_TOKEN")
+        projectId = "eKgd4diD"
+        versionNumber = project.mod_version
+        versionType = "alpha"
+        uploadFile = remapJar
+        gameVersions = [project.minecraft_version]
+        dependencies {
+            required.project "fabric-api"
+            required.project "fabric-language-kotlin"
+        }
+    }
 }
-
-
-// modrinth {
-//     token = System.getenv("MODRINTH_TOKEN")
-//     projectId = "eKgd4diD"
-//     versionNumber = version
-//     versionType = "alpha"
-//     uploadFile = remapJar
-//     gameVersions = ["1.19.4"]
-//     dependencies {
-//         required.project "fabric-api"
-//         required.project "fabric-language-kotlin"
-//     }
-// }

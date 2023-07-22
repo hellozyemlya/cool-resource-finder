@@ -9,5 +9,5 @@ pluginManagement {
 	}
 }
 
-include "mc1194"
-include "mc1201"
+include "1.19.4"
+include "1.20.1"
