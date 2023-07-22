@@ -9,6 +9,7 @@ version = "1.0.0"
 group = "junk"
 
 
+
 subprojects {
     apply plugin: 'fabric-loom'
     apply plugin: 'maven-publish'
@@ -71,7 +72,8 @@ subprojects {
     }
 
     def sourceFolder = "src" + "${project.name}".substring(2)
-    println(sourceFolder)
+
+
     sourceSets {
         main {
             java {
@@ -94,6 +96,13 @@ subprojects {
             resources {
                 srcDirs += file("../${sourceFolder}/client/resources")
             }
+        }
+
+        tasks.compileKotlin {
+            inputs.property("dummy", System.currentTimeMillis())
+        }
+        tasks.compileJava {
+            inputs.property("dummy", System.currentTimeMillis())
         }
     }
 
