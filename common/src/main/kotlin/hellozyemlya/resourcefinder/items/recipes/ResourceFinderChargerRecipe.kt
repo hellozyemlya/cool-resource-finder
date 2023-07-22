@@ -1,20 +1,28 @@
 package hellozyemlya.resourcefinder.items.recipes
 
 import com.google.common.collect.Streams
+import hellozyemlya.RecipeInputInventoryAlias
 import hellozyemlya.resourcefinder.ResourceFinder
 import hellozyemlya.resourcefinder.items.ScanRecord
 import hellozyemlya.resourcefinder.items.getScanList
 import hellozyemlya.resourcefinder.registry.ResourceRegistry
 import net.minecraft.inventory.Inventory
 import net.minecraft.item.ItemStack
+import net.minecraft.recipe.RecipeSerializer
+import net.minecraft.recipe.SpecialCraftingRecipe
+import net.minecraft.recipe.book.CraftingRecipeCategory
 import net.minecraft.registry.DynamicRegistryManager
+import net.minecraft.util.Identifier
 import net.minecraft.util.collection.DefaultedList
 import net.minecraft.world.World
 import java.util.stream.Collectors
 
 const val MAX_SCAN_CHARGES: Int = 5
 
-class ResourceFinderChargeRecipeProxy {
+class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategory) : SpecialCraftingRecipe(
+    id,
+    category
+) {
     private fun getRecipeItems(inventory: Inventory): Pair<ItemStack, ArrayList<ItemStack>> {
         var compass: ItemStack? = null
         val charges = ArrayList<ItemStack>()
@@ -37,7 +45,7 @@ class ResourceFinderChargeRecipeProxy {
         return Pair(compass, charges)
     }
 
-    fun matches(inventory: Inventory, world: World?): Boolean {
+    override fun matches(inventory: RecipeInputInventoryAlias, world: World?): Boolean {
         var compassStack: ItemStack? = null
         val charges = ArrayList<ItemStack>()
 
@@ -57,17 +65,17 @@ class ResourceFinderChargeRecipeProxy {
 
         if(compassStack != null && charges.size > 0) {
             val estimatedChargesCount =
-                Streams.concat(
-                    compassStack.getScanList().stream().map { it.key },
-                    charges.stream().map { ResourceRegistry.INSTANCE.getByChargingItem(it.item).group }
-                ).collect(Collectors.toSet()).size
+                    Streams.concat(
+                            compassStack.getScanList().stream().map { it.key },
+                            charges.stream().map { ResourceRegistry.INSTANCE.getByChargingItem(it.item).group }
+                    ).collect(Collectors.toSet()).size
             return estimatedChargesCount <= MAX_SCAN_CHARGES
         }
 
         return false
     }
 
-    fun craft(inventory: Inventory, registryManager: DynamicRegistryManager?): ItemStack {
+    override fun craft(inventory: RecipeInputInventoryAlias, registryManager: DynamicRegistryManager?): ItemStack {
         val (compass, charges) = getRecipeItems(inventory)
 
         val result = compass.copy()
@@ -90,11 +98,19 @@ class ResourceFinderChargeRecipeProxy {
         return result
     }
 
-    fun getRemainder(inventory: Inventory): DefaultedList<ItemStack> {
+    override fun getRemainder(inventory: RecipeInputInventoryAlias): DefaultedList<ItemStack> {
         val defaultedList = DefaultedList.ofSize(inventory.size(), ItemStack.EMPTY)
         for (i in defaultedList.indices) {
             inventory.setStack(i, ItemStack.EMPTY)
         }
         return defaultedList
+    }
+
+    override fun fits(width: Int, height: Int): Boolean {
+        return width * height >= 2
+    }
+
+    override fun getSerializer(): RecipeSerializer<*> {
+        return ResourceFinder.RESOURCE_FINDER_REPAIR_SERIALIZER
     }
 }
