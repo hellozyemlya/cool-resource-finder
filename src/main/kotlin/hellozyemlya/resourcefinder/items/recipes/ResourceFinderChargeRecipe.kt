@@ -5,7 +5,7 @@ import hellozyemlya.resourcefinder.ResourceFinder
 import hellozyemlya.resourcefinder.items.ScanRecord
 import hellozyemlya.resourcefinder.items.getScanList
 import hellozyemlya.resourcefinder.registry.ResourceRegistry
-import net.minecraft.inventory.RecipeInputInventory
+import net.minecraft.inventory.CraftingInventory
 import net.minecraft.item.ItemStack
 import net.minecraft.recipe.RecipeSerializer
 import net.minecraft.recipe.SpecialCraftingRecipe
@@ -22,7 +22,7 @@ class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategor
     id,
     category
 ) {
-    private fun getRecipeItems(inventory: RecipeInputInventory): Pair<ItemStack, ArrayList<ItemStack>> {
+    private fun getRecipeItems(inventory: CraftingInventory): Pair<ItemStack, ArrayList<ItemStack>> {
         var compass: ItemStack? = null
         val charges = ArrayList<ItemStack>()
 
@@ -44,7 +44,7 @@ class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategor
         return Pair(compass, charges)
     }
 
-    override fun matches(inventory: RecipeInputInventory, world: World?): Boolean {
+    override fun matches(inventory: CraftingInventory, world: World?): Boolean {
         var compassStack: ItemStack? = null
         val charges = ArrayList<ItemStack>()
 
@@ -74,7 +74,7 @@ class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategor
         return false
     }
 
-    override fun craft(inventory: RecipeInputInventory, registryManager: DynamicRegistryManager?): ItemStack {
+    override fun craft(inventory: CraftingInventory, registryManager: DynamicRegistryManager?): ItemStack {
         val (compass, charges) = getRecipeItems(inventory)
 
         val result = compass.copy()
@@ -97,7 +97,7 @@ class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategor
         return result
     }
 
-    override fun getRemainder(inventory: RecipeInputInventory): DefaultedList<ItemStack> {
+    override fun getRemainder(inventory: CraftingInventory): DefaultedList<ItemStack> {
         val defaultedList = DefaultedList.ofSize(inventory.size(), ItemStack.EMPTY)
         for (i in defaultedList.indices) {
             inventory.setStack(i, ItemStack.EMPTY)

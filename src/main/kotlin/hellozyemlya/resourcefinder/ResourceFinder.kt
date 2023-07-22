@@ -28,15 +28,12 @@ object ResourceFinder : ModInitializer {
         ResourceFinderCompass(FabricItemSettings().maxCount(1))
     )
 
-    val RESOURCE_FINDER_GROUP_KEY =
-        RegistryKey.of(RegistryKeys.ITEM_GROUP, Identifier(MOD_NAMESPACE, "resource_finder"))
 
-    public val RESOURCE_FINDER_GROUP: ItemGroup = Registry.register(Registries.ITEM_GROUP,
-        RESOURCE_FINDER_GROUP_KEY,
-        FabricItemGroup.builder()
-            .icon { ItemStack(RESOURCE_FINDER_ITEM) }
-            .displayName(Text.translatable("itemGroup.$MOD_NAMESPACE.resource_finder_group"))
-            .build())
+
+    val RESOURCE_FINDER_GROUP: ItemGroup = FabricItemGroup.builder(Identifier(MOD_NAMESPACE, "resource_finder"))
+        .icon { ItemStack(RESOURCE_FINDER_ITEM) }
+        .displayName(Text.translatable("itemGroup.tutorial.test_group"))
+        .build()
 
 
     final val RESOURCE_FINDER_REPAIR_SERIALIZER = Registry.register(
@@ -50,7 +47,7 @@ object ResourceFinder : ModInitializer {
         })
 
     override fun onInitialize() {
-        ItemGroupEvents.modifyEntriesEvent(RESOURCE_FINDER_GROUP_KEY)
+        ItemGroupEvents.modifyEntriesEvent(RESOURCE_FINDER_GROUP)
             .register { content -> content.add(RESOURCE_FINDER_ITEM) }
         LOGGER.info("'Cool Resource Finder' scans for ${ResourceRegistry.INSTANCE.groups.count()} resource groups.")
     }
