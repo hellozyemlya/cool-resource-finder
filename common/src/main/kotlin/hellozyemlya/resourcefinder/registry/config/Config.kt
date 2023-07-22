@@ -42,9 +42,9 @@ object Config {
     public inline fun <reified T> save(obj: T, name: String) {
         FileWriter(getConfigFile(name)).use { fileWriter ->
             gson.toJson(
-                obj,
-                T::class.java,
-                fileWriter
+                    obj,
+                    T::class.java,
+                    fileWriter
             )
         }
     }
@@ -54,8 +54,8 @@ object Config {
         if (configFile.exists()) {
             FileReader(configFile).use { fileReader ->
                 return gson.fromJson(
-                    fileReader,
-                    T::class.java,
+                        fileReader,
+                        T::class.java,
                 )
             }
         } else {

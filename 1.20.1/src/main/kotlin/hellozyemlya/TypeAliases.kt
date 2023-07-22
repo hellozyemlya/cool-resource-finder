@@ -1,5 +1,0 @@
-package hellozyemlya
-
-import net.minecraft.inventory.RecipeInputInventory
-
-typealias RecipeInputInventoryAlias = RecipeInputInventory

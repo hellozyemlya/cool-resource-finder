@@ -1,7 +1,7 @@
 package hellozyemlya.resourcefinder.items.recipes
 
 import com.google.common.collect.Streams
-import hellozyemlya.RecipeInputInventoryAlias
+import hellozyemlya.mccompat.RecipeInputInventoryAlias
 import hellozyemlya.resourcefinder.ResourceFinder
 import hellozyemlya.resourcefinder.items.ScanRecord
 import hellozyemlya.resourcefinder.items.getScanList
@@ -20,8 +20,8 @@ import java.util.stream.Collectors
 const val MAX_SCAN_CHARGES: Int = 5
 
 class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategory) : SpecialCraftingRecipe(
-    id,
-    category
+        id,
+        category
 ) {
     private fun getRecipeItems(inventory: Inventory): Pair<ItemStack, ArrayList<ItemStack>> {
         var compass: ItemStack? = null
@@ -63,7 +63,7 @@ class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategor
             }
         }
 
-        if(compassStack != null && charges.size > 0) {
+        if (compassStack != null && charges.size > 0) {
             val estimatedChargesCount =
                     Streams.concat(
                             compassStack.getScanList().stream().map { it.key },

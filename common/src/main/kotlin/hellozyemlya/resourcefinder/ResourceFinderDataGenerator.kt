@@ -21,7 +21,7 @@ fun FabricLanguageProvider.TranslationBuilder.add(text: MutableText, value: Stri
 class EngLangProvider(dataGenerator: FabricDataOutput) : FabricLanguageProvider(dataGenerator, "en_us") {
     override fun generateTranslations(translationBuilder: TranslationBuilder) {
         translationBuilder.add(ResourceFinder.RESOURCE_FINDER_ITEM, "Resource Scanner")
-        translationBuilder.add(ResourceFinder.GROUP_TRANSLATE_KEY, "Resource Scanner")
+        translationBuilder.add(ResourceFinder.RESOURCE_FINDER_ITEM_GROUP, "Resource Scanner")
         translationBuilder.add(ResourceFinderTexts.SCAN_FOR, "Finds")
         translationBuilder.add(ResourceFinderTexts.SCAN_JOIN, "for")
     }
@@ -30,7 +30,7 @@ class EngLangProvider(dataGenerator: FabricDataOutput) : FabricLanguageProvider(
 class UaLangProvider(dataGenerator: FabricDataOutput) : FabricLanguageProvider(dataGenerator, "uk_ua") {
     override fun generateTranslations(translationBuilder: TranslationBuilder) {
         translationBuilder.add(ResourceFinder.RESOURCE_FINDER_ITEM, "Сканер Ресурсів")
-        translationBuilder.add(ResourceFinder.GROUP_TRANSLATE_KEY, "Сканер Ресурсів")
+        translationBuilder.add(ResourceFinder.RESOURCE_FINDER_ITEM_GROUP, "Сканер Ресурсів")
         translationBuilder.add(ResourceFinderTexts.SCAN_FOR, "Знаходить")
         translationBuilder.add(ResourceFinderTexts.SCAN_JOIN, "впродовж")
     }
