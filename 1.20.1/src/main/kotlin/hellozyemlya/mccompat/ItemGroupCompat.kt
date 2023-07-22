@@ -20,5 +20,5 @@ fun createItemGroup(icon: ItemStack, path: String, groupNameKey: String): ItemGr
                     .icon { icon }
                     .displayName(Text.translatable(groupNameKey))
                     .build())
-    return key;
+    return key
 }

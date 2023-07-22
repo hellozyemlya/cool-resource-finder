@@ -27,6 +27,7 @@ import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 import kotlin.math.atan2
 
+@Suppress("unused")
 object ResourceFinderClient : ClientModInitializer {
     private val ARROW_ITEM_ID = Identifier(MOD_NAMESPACE, "resource_finder_compass_arrow")
     private val ARROW_MODEL_ID = ModelIdentifier(ARROW_ITEM_ID, "inventory")

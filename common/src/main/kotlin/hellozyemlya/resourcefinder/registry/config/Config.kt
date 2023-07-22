@@ -17,6 +17,7 @@ import java.nio.file.Paths
 
 object Config {
     private object AdapterFactory : TypeAdapterFactory {
+        @Suppress("UNCHECKED_CAST")
         override fun <T : Any?> create(p0: Gson, p1: TypeToken<T>): TypeAdapter<T>? {
             return when {
                 Block::class.java.isAssignableFrom(p1.rawType) -> BlockTypeAdapter as TypeAdapter<T>

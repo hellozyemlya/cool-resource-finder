@@ -36,6 +36,8 @@ class UaLangProvider(dataGenerator: FabricDataOutput) : FabricLanguageProvider(d
     }
 }
 
+
+@Suppress("unused")
 object ResourceFinderDataGenerator : DataGeneratorEntrypoint {
     override fun onInitializeDataGenerator(fabricDataGenerator: FabricDataGenerator) {
         val pack: FabricDataGenerator.Pack = fabricDataGenerator.createPack()
