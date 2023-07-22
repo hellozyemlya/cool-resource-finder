@@ -70,27 +70,29 @@ subprojects {
         }
     }
 
+    def sourceFolder = "src" + "${project.name}".substring(2)
+    println(sourceFolder)
     sourceSets {
         main {
             java {
-                srcDirs += file('../src/main/java')
+                srcDirs += file("../${sourceFolder}/main/java")
             }
             kotlin {
-                srcDirs += file('../src/main/kotlin')
+                srcDirs += file("../${sourceFolder}/main/kotlin")
             }
             resources {
-                srcDirs += file('../src/main/resources')
+                srcDirs += file("../${sourceFolder}/main/resources")
             }
         }
         client {
             java {
-                srcDirs += file('../src/client/java')
+                srcDirs += file("../${sourceFolder}/client/java")
             }
             kotlin {
-                srcDirs += file('../src/client/kotlin')
+                srcDirs += file("../${sourceFolder}/client/kotlin")
             }
             resources {
-                srcDirs += file('../src/client/resources')
+                srcDirs += file("../${sourceFolder}/client/resources")
             }
         }
     }
