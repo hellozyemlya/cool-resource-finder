@@ -128,15 +128,44 @@ subprojects {
          * hack incremental source code build, this will add every java or kt file as a regular input
          * from common src folder (the one that source for module-specific symlink) to ensure gradle can detect their
          * timestamp changes and mark job as stale
-         * TODO make same thing for resource files(processResources and jar jobs?)
+         * kotlin sources - done
+         * java sources - done
+         * resources(models/textures/recipes) - done
+         * TODO is all jobs covered?
          */
         tasks.compileKotlin {
-            def sourceFiles = fileTree(dir: "${rootProject.projectDir}/common/src", include: '**/*.kt')
-            inputs.files(sourceFiles)
+            inputs.files fileTree("${rootProject.projectDir}/common/src/main").matching {
+                include "**/*.kt"
+            }
         }
         tasks.compileJava {
-            def sourceFiles = fileTree(dir: "${rootProject.projectDir}/common/src", include: '**/*.java')
-            inputs.files(sourceFiles)
+            inputs.files fileTree("${rootProject.projectDir}/common/src/main").matching {
+                include "**/*.java"
+            }
+        }
+
+        tasks.compileClientKotlin {
+            inputs.files fileTree("${rootProject.projectDir}/common/src/client").matching {
+                include "**/*.kt"
+            }
+        }
+        tasks.compileClientJava {
+            inputs.files fileTree("${rootProject.projectDir}/common/src/client").matching {
+                include "**/*.java"
+            }
+        }
+
+        tasks.processClientResources {
+            inputs.files fileTree("${rootProject.projectDir}/common/src/client").matching {
+                exclude '**/*.java'
+                exclude '**/*.kt'
+            }
+        }
+        tasks.processResources {
+            inputs.files fileTree("${rootProject.projectDir}/common/src/main").matching {
+                exclude '**/*.java'
+                exclude '**/*.kt'
+            }
         }
     }
 
