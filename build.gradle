@@ -124,12 +124,19 @@ subprojects {
             }
         }
 
-        // deal with incremental build(disable it)
+        /**
+         * hack incremental source code build, this will add every java or kt file as a regular input
+         * from common src folder (the one that source for module-specific symlink) to ensure gradle can detect their
+         * timestamp changes and mark job as stale
+         * TODO make same thing for resource files(processResources and jar jobs?)
+         */
         tasks.compileKotlin {
-            inputs.property("dummy", System.currentTimeMillis())
+            def sourceFiles = fileTree(dir: "${rootProject.projectDir}/common/src", include: '**/*.kt')
+            inputs.files(sourceFiles)
         }
         tasks.compileJava {
-            inputs.property("dummy", System.currentTimeMillis())
+            def sourceFiles = fileTree(dir: "${rootProject.projectDir}/common/src", include: '**/*.java')
+            inputs.files(sourceFiles)
         }
     }
 

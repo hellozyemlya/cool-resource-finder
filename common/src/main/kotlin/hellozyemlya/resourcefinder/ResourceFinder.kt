@@ -40,6 +40,7 @@ object ResourceFinder : ModInitializer {
         ItemGroupEvents.modifyEntriesEvent(RESOURCE_FINDER_ITEM_GROUP).register {
             it.add(RESOURCE_FINDER_ITEM)
         }
+        println("helloworld")
         LOGGER.info("'Cool Resource Finder' scans for ${ResourceRegistry.INSTANCE.groups.count()} resource groups.")
     }
 }
