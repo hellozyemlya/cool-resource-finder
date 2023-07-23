@@ -173,6 +173,7 @@ subprojects {
         versionType = "alpha"
         uploadFile = remapJar
         gameVersions = [project.minecraft_version]
+        changelog = project.mod_changelog
         dependencies {
             required.project "fabric-api"
             required.project "fabric-language-kotlin"
