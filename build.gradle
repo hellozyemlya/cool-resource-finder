@@ -170,7 +170,7 @@ subprojects {
     publishMods {
         file = remapJar.archiveFile
         changelog = project.mod_changelog
-        type = ALPHA
+        type = BETA
         modLoaders.add("fabric")
 
         curseforge {
