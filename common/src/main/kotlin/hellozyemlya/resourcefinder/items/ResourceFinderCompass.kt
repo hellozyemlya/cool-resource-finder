@@ -1,21 +1,20 @@
 package hellozyemlya.resourcefinder.items
 
+import hellozyemlya.common.getOrCreate
 import hellozyemlya.resourcefinder.ResourceFinderTexts
+import hellozyemlya.resourcefinder.items.state.FinderIdAllocator
 import net.minecraft.client.item.TooltipContext
 import net.minecraft.entity.Entity
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.item.Item
 import net.minecraft.item.ItemStack
-import net.minecraft.nbt.NbtCompound
 import net.minecraft.server.MinecraftServer
-import net.minecraft.server.world.ServerWorld
 import net.minecraft.text.Style
 import net.minecraft.text.Text
 import net.minecraft.text.TextColor
 import net.minecraft.text.Texts
 import net.minecraft.util.Hand
 import net.minecraft.util.StringHelper
-import net.minecraft.world.PersistentState
 import net.minecraft.world.World
 
 class ResourceFinderCompass(settings: Settings) : Item(settings) {
@@ -74,9 +73,17 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
             return stateManager.getOrCreate(nbt.getInt("finder_id"), stack)
         }
 
-        val id = server.allocateFinderId()
+        val id = allocateFinderId()
         nbt.putInt("finder_id", id)
         return stateManager.getOrCreate(id, stack)
+    }
+
+    private fun allocateFinderId(): Int {
+        return server!!
+            .getWorld(World.OVERWORLD)!!
+            .persistentStateManager
+            .getOrCreate("finder_id_map", ::FinderIdAllocator)
+            .allocateId()
     }
 
 }
@@ -85,35 +92,4 @@ public fun MinecraftServer.getFinderStateManager(): ResourceFinderStateManager {
     return ResourceFinderStateManager
 }
 
-public fun MinecraftServer.allocateFinderId(): Int {
-    val world = this.getWorld(World.OVERWORLD)!!
-    return world.persistentStateManager
-        .getOrCreate(CompassStateAllocator::fromNbt, ::CompassStateAllocator, "finder_id_map")
-        .getNextId()
-}
 
-
-class CompassStateAllocator() : PersistentState() {
-    private var nextId: Int = 0
-
-    constructor(initial: Int) : this() {
-        nextId = initial
-    }
-
-    fun getNextId(): Int {
-        val result = ++nextId
-        markDirty()
-        return result
-    }
-
-    override fun writeNbt(nbt: NbtCompound): NbtCompound {
-        nbt.putInt("next_finder_id", nextId)
-        return nbt
-    }
-
-    companion object {
-        fun fromNbt(nbt: NbtCompound): CompassStateAllocator {
-            return CompassStateAllocator(nbt.getInt("next_finder_id"))
-        }
-    }
-}

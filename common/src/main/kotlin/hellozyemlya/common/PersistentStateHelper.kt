@@ -1,28 +1,20 @@
 package hellozyemlya.common
 
+import kotlinx.serialization.minecraft.getFrom
+import kotlinx.serialization.minecraft.put
+import kotlinx.serialization.serializer
 import net.minecraft.nbt.NbtCompound
 import net.minecraft.world.PersistentState
-import kotlin.reflect.KProperty
+import net.minecraft.world.PersistentStateManager
 
 
-
-
-class PersistentStateHelper : PersistentState() {
-    var hello: Int by PersistentInt(this, ::hello)
-    override fun writeNbt(nbt: NbtCompound?): NbtCompound {
-        return nbt!!
-    }
+inline fun <reified T : BasePersistentState> PersistentStateManager.getOrCreate(key: String, noinline factory: () -> T): T {
+    return this.getOrCreate(serializer<T>()::getFrom, factory, key)
 }
 
-class PersistentInt(val state: PersistentState, property: KProperty<*>) {
-    private var storage: Int = 0
-
-    operator fun getValue(thisRef: Any?, property: KProperty<*>): Int {
-        return storage
-    }
-
-    operator fun setValue(thisRef: Any?, property: KProperty<*>, value: Int) {
-        state.markDirty()
-        storage = value
+open class BasePersistentState : PersistentState() {
+    override fun writeNbt(nbt: NbtCompound): NbtCompound {
+        serializer(this::class.java).put(this, nbt)
+        return nbt
     }
 }
