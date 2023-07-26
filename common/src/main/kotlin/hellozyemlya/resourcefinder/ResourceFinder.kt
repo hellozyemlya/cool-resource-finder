@@ -2,8 +2,9 @@ package hellozyemlya.resourcefinder
 
 import hellozyemlya.mccompat.ItemGroupKeyAlias
 import hellozyemlya.mccompat.createItemGroup
-import hellozyemlya.resourcefinder.items.ResourceFinderCompass
+import hellozyemlya.resourcefinder.items.FinderItem
 import hellozyemlya.resourcefinder.items.recipes.ResourceFinderChargeRecipe
+import hellozyemlya.resourcefinder.items.server.FinderItemServerSide
 import hellozyemlya.resourcefinder.registry.ResourceRegistry
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
@@ -20,10 +21,10 @@ import org.slf4j.LoggerFactory
 object ResourceFinder : ModInitializer {
     private val LOGGER: Logger = LoggerFactory.getLogger("cool-resource-finder")
 
-    val RESOURCE_FINDER_ITEM: ResourceFinderCompass = Registry.register(
+    val RESOURCE_FINDER_ITEM: FinderItem = Registry.register(
             Registries.ITEM, Identifier(MOD_NAMESPACE, "resource_finder_compass"),
-            ResourceFinderCompass(FabricItemSettings().maxCount(1))
-    )
+            FinderItem(FabricItemSettings().maxCount(1))
+    ).setServerSide(::FinderItemServerSide)
 
     val RESOURCE_FINDER_ITEM_GROUP: ItemGroupKeyAlias = createItemGroup(RESOURCE_FINDER_ITEM.defaultStack, "resource_finder", "itemGroup.$MOD_NAMESPACE.resource_finder_group")
 
@@ -40,10 +41,6 @@ object ResourceFinder : ModInitializer {
     override fun onInitialize() {
         ItemGroupEvents.modifyEntriesEvent(RESOURCE_FINDER_ITEM_GROUP).register {
             it.add(RESOURCE_FINDER_ITEM)
-        }
-
-        ServerLifecycleEvents.SERVER_STARTED.register {
-            RESOURCE_FINDER_ITEM.server = it
         }
 
         LOGGER.info("'Cool Resource Finder' scans for ${ResourceRegistry.INSTANCE.groups.count()} resource groups.")

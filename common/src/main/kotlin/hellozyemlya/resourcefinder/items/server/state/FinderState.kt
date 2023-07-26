@@ -1,49 +1,21 @@
-package hellozyemlya.resourcefinder.items.state
+package hellozyemlya.resourcefinder.items.server.state
 
 import hellozyemlya.common.compound
 import hellozyemlya.common.compoundList
 import hellozyemlya.common.int
 import hellozyemlya.common.item
+import hellozyemlya.resourcefinder.items.state.ClientFinderState
+import hellozyemlya.resourcefinder.items.state.ClientScanRecord
+import hellozyemlya.resourcefinder.items.state.ClientTargetRecord
 import hellozyemlya.resourcefinder.items.state.network.FinderStateUpdatePacket
 import hellozyemlya.resourcefinder.registry.ResourceEntry
 import hellozyemlya.resourcefinder.registry.ResourceRegistry
-import kotlinx.serialization.SerialName
-import net.fabricmc.fabric.api.networking.v1.PacketByteBufs
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking
 import net.minecraft.item.Item
 import net.minecraft.nbt.NbtCompound
-import net.minecraft.network.PacketByteBuf
-import net.minecraft.registry.Registries
 import net.minecraft.server.network.ServerPlayerEntity
 import net.minecraft.util.math.BlockPos
 import net.minecraft.world.PersistentState
-
-
-class FinderIdAllocator() : PersistentState() {
-    private constructor(id: Int) : this() {
-        nextId = id
-    }
-
-    @SerialName("next_finder_id")
-    private var nextId: Int = 0
-
-    fun allocateId(): Int {
-        val result = ++nextId
-        markDirty()
-        return result
-    }
-
-    override fun writeNbt(nbt: NbtCompound): NbtCompound {
-        nbt.putInt("next_finder_id", nextId)
-        return nbt
-    }
-
-    companion object {
-        fun fromNbt(nbt: NbtCompound): FinderIdAllocator {
-            return FinderIdAllocator(nbt.getInt("next_finder_id"))
-        }
-    }
-}
 
 class FinderState(private val id: Int) : PersistentState() {
     val scanList: MutableMap<Item, Int> = HashMap()
@@ -130,7 +102,3 @@ class FinderState(private val id: Int) : PersistentState() {
         }
     }
 }
-
-data class ClientScanRecord(val item: Item, val time: Int)
-data class ClientTargetRecord(val item: Item, val pos: BlockPos)
-data class ClientFinderState(val id: Int, val scanList: List<ClientScanRecord>, val targetList: List<ClientTargetRecord>)

@@ -1,10 +1,10 @@
 package hellozyemlya.resourcefinder.items.state.network
 
 import hellozyemlya.resourcefinder.MOD_NAMESPACE
+import hellozyemlya.resourcefinder.items.server.state.FinderState
 import hellozyemlya.resourcefinder.items.state.ClientFinderState
 import hellozyemlya.resourcefinder.items.state.ClientScanRecord
 import hellozyemlya.resourcefinder.items.state.ClientTargetRecord
-import hellozyemlya.resourcefinder.items.state.FinderState
 import net.fabricmc.fabric.api.networking.v1.FabricPacket
 import net.fabricmc.fabric.api.networking.v1.PacketType
 import net.minecraft.network.PacketByteBuf

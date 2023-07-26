@@ -1,6 +1,6 @@
 package hellozyemlya.resourcefinder.items
 
-import hellozyemlya.common.ClientItem
+import hellozyemlya.common.items.ItemClientSide
 import hellozyemlya.common.pushPop
 import hellozyemlya.resourcefinder.MOD_NAMESPACE
 import hellozyemlya.resourcefinder.ResourceFinder
@@ -42,8 +42,7 @@ import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 import kotlin.math.atan2
 
-class ResourceFinderCompassClient : ClientItem<ResourceFinderCompass>(ResourceFinder.RESOURCE_FINDER_ITEM) {
-
+class FinderItemClientSide : ItemClientSide<FinderItem>(ResourceFinder.RESOURCE_FINDER_ITEM) {
     private val ARROW_ITEM_ID = Identifier(MOD_NAMESPACE, "resource_finder_compass_arrow")
     private val ARROW_MODEL_ID = ModelIdentifier(ARROW_ITEM_ID, "inventory")
     private val BASE_ITEM_ID = Identifier(MOD_NAMESPACE, "resource_finder_compass_base")
@@ -78,7 +77,7 @@ class ResourceFinderCompassClient : ClientItem<ResourceFinderCompass>(ResourceFi
         return 180f - (360f * a)
     }
 
-    private fun renderPositionedArrows(
+    private fun renderArrows(
         entity: LivingEntity,
         stack: ItemStack,
         matrices: MatrixStack,
@@ -169,7 +168,7 @@ class ResourceFinderCompassClient : ClientItem<ResourceFinderCompass>(ResourceFi
                 matrices.push()
                 matrices.translate(0f, (idx * 0.01f), 0f)
                 matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(25f * idx))
-                // TODO set color here somehow
+
                 renderer.renderItem(
                     stack,
                     ModelTransformationMode.NONE,
@@ -215,8 +214,11 @@ class ResourceFinderCompassClient : ClientItem<ResourceFinderCompass>(ResourceFi
 
         val entity = lastEntity
 
-        if (renderPositionedArrows(mode, entity, stack)) {
-            renderPositionedArrows(
+        if (isPreviewRender(mode, entity, stack)) {
+            renderArrowsPreview(stack, matrices, vertexConsumers, light, overlay, renderer)
+
+        } else {
+            renderArrows(
                 entity,
                 stack,
                 matrices,
@@ -226,41 +228,39 @@ class ResourceFinderCompassClient : ClientItem<ResourceFinderCompass>(ResourceFi
                 overlay,
                 renderer
             )
-        } else {
-            renderArrowsPreview(stack, matrices, vertexConsumers, light, overlay, renderer)
         }
     }
 
     @OptIn(ExperimentalContracts::class)
-    private fun renderPositionedArrows(
+    private fun isPreviewRender(
         mode: ModelTransformationMode,
         entity: LivingEntity?,
         stack: ItemStack
     ): Boolean {
         contract {
-            returns(true) implies (entity != null)
+            returns(false) implies (entity != null)
         }
 
         return when (mode) {
             ModelTransformationMode.FIRST_PERSON_RIGHT_HAND, ModelTransformationMode.FIRST_PERSON_LEFT_HAND, ModelTransformationMode.HEAD, ModelTransformationMode.THIRD_PERSON_LEFT_HAND, ModelTransformationMode.THIRD_PERSON_RIGHT_HAND -> {
-                entity != null
+                entity == null
             }
 
             ModelTransformationMode.GUI -> {
                 if (entity != null) {
-                    entity.mainHandStack === stack || entity.offHandStack === stack
+                    !(entity.mainHandStack === stack || entity.offHandStack === stack)
                 } else {
-                    false
+                    true
                 }
             }
 
             else -> {
-                false
+                true
             }
         }
     }
 
-    override fun appendTooltips(stack: ItemStack, world: World?, tooltip: MutableList<Text>, context: TooltipContext?) {
+    override fun appendTooltip(stack: ItemStack, world: World, tooltip: MutableList<Text>, context: TooltipContext?) {
         withState(stack) {
             it.scanList.forEach { scanRecord ->
                 val blockName = Texts.setStyleIfAbsent(
@@ -314,16 +314,6 @@ class ResourceFinderCompassClient : ClientItem<ResourceFinderCompass>(ResourceFi
         ClientPlayNetworking.registerGlobalReceiver(FinderStateUpdatePacket.PACKET_TYPE) { packet: FinderStateUpdatePacket, _: ClientPlayerEntity, _: PacketSender ->
             val state = packet.clientState
             idToState[state.id] = state
-//
-//            println("state update: ${state.id}")
-//            println("  scans:")
-//            state.scanList.forEach {
-//                println("    ${it.item}: ${it.time}")
-//            }
-//            println("  targets:")
-//            state.targetList.forEach {
-//                println("    ${it.item}: ${it.pos}")
-//            }
         }
     }
 }
