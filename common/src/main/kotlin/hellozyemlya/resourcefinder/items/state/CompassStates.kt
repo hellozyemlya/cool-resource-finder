@@ -77,8 +77,6 @@ class FinderState(private val id: Int) : PersistentState() {
                 }
             }
 
-//            val scans = scanList.entries.joinToString { "${Registries.ITEM.getId(it.key)}:${it.value}" }
-//            println("scan for id: $id, scans: $scans")
             markDirty()
 
             ServerPlayNetworking.send(entity, FinderStateUpdatePacket(this))
@@ -122,7 +120,7 @@ class FinderState(private val id: Int) : PersistentState() {
 
     companion object {
         fun fromNbt(nbt: NbtCompound): FinderState {
-            val result = FinderState(nbt.int("next_finder_id"))
+            val result = FinderState(nbt.int("id"))
 
             nbt.compoundList("scan_list").forEach {
                 result.scanList[it.item("item")] = it.int("time")

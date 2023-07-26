@@ -77,6 +77,7 @@ class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategor
         val (compass, charges) = getRecipeItems(inventory)
 
         val result = compass.copy()
+        ResourceFinder.RESOURCE_FINDER_ITEM.reallocateId(result)
 
 //        val scanList = result.getScanList()
 

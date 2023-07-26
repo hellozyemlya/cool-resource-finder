@@ -6,6 +6,7 @@ import hellozyemlya.resourcefinder.MOD_NAMESPACE
 import hellozyemlya.resourcefinder.ResourceFinder
 import hellozyemlya.resourcefinder.ResourceFinderTexts
 import hellozyemlya.resourcefinder.items.state.ClientFinderState
+import hellozyemlya.resourcefinder.items.state.network.FinderStateRequestPacket
 import hellozyemlya.resourcefinder.items.state.network.FinderStateUpdatePacket
 import hellozyemlya.resourcefinder.registry.ResourceRegistry
 import net.fabricmc.fabric.api.client.model.loading.v1.ModelLoadingPlugin
@@ -288,7 +289,7 @@ class ResourceFinderCompassClient : ClientItem<ResourceFinderCompass>(ResourceFi
             if (state != null) {
                 block(state)
             } else {
-                // TODO request state here
+                ClientPlayNetworking.send(FinderStateRequestPacket(id))
             }
         }
     }

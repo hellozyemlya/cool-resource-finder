@@ -1,28 +1,29 @@
 package hellozyemlya.resourcefinder.items
 
 import hellozyemlya.common.items.BaseClientAwareItem
-import hellozyemlya.resourcefinder.ResourceFinderTexts
 import hellozyemlya.resourcefinder.items.state.FinderIdAllocator
 import hellozyemlya.resourcefinder.items.state.FinderState
-import net.fabricmc.api.EnvType
-import net.fabricmc.api.Environment
-import net.minecraft.client.item.TooltipContext
+import hellozyemlya.resourcefinder.items.state.network.FinderStateRequestPacket
+import hellozyemlya.resourcefinder.items.state.network.FinderStateUpdatePacket
+import net.fabricmc.fabric.api.networking.v1.PacketSender
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking
 import net.minecraft.entity.Entity
 import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.item.Item
 import net.minecraft.item.ItemStack
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.network.ServerPlayerEntity
-import net.minecraft.text.Style
-import net.minecraft.text.Text
-import net.minecraft.text.TextColor
-import net.minecraft.text.Texts
 import net.minecraft.util.Hand
-import net.minecraft.util.StringHelper
 import net.minecraft.world.World
 
 class ResourceFinderCompass(settings: Settings) : BaseClientAwareItem(settings) {
     public var server: MinecraftServer? = null
+
+    init {
+        ServerPlayNetworking.registerGlobalReceiver(FinderStateRequestPacket.PACKET_TYPE) {
+                request: FinderStateRequestPacket, player: ServerPlayerEntity, _: PacketSender ->
+            ServerPlayNetworking.send(player, FinderStateUpdatePacket(getServerState(request.id)))
+        }
+    }
 
     companion object {
         const val DEFAULT_SCAN_TIMEOUT = 10
@@ -46,16 +47,22 @@ class ResourceFinderCompass(settings: Settings) : BaseClientAwareItem(settings) 
         }
     }
 
+    fun reallocateId(stack: ItemStack) {
+        val id = allocateFinderId()
+        stack.orCreateNbt.putInt("finder_id", id)
+    }
+
 //    @Environment(EnvType.SERVER)
     fun getServerState(stack: ItemStack): FinderState {
-        val id = getFinderId(stack)
+        return getServerState(getFinderId(stack))
+    }
 
+    fun getServerState(id: Int): FinderState {
         return server!!
             .getWorld(World.OVERWORLD)!!
             .persistentStateManager
             .getOrCreate(FinderState::fromNbt, {FinderState(id)},"resource_finder$id")
     }
-
 
 //    @Environment(EnvType.SERVER)
     private fun getFinderId(stack: ItemStack): Int {
