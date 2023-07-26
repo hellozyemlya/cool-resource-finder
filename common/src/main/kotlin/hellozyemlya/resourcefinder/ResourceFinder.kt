@@ -6,6 +6,7 @@ import hellozyemlya.resourcefinder.items.ResourceFinderCompass
 import hellozyemlya.resourcefinder.items.recipes.ResourceFinderChargeRecipe
 import hellozyemlya.resourcefinder.registry.ResourceRegistry
 import net.fabricmc.api.ModInitializer
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
 import net.fabricmc.fabric.api.item.v1.FabricItemSettings
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents
 import net.minecraft.recipe.RecipeSerializer
@@ -39,6 +40,10 @@ object ResourceFinder : ModInitializer {
     override fun onInitialize() {
         ItemGroupEvents.modifyEntriesEvent(RESOURCE_FINDER_ITEM_GROUP).register {
             it.add(RESOURCE_FINDER_ITEM)
+        }
+
+        ServerLifecycleEvents.SERVER_STARTED.register {
+            RESOURCE_FINDER_ITEM.server = it
         }
 
         LOGGER.info("'Cool Resource Finder' scans for ${ResourceRegistry.INSTANCE.groups.count()} resource groups.")

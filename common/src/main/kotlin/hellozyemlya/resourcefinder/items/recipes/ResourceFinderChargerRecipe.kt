@@ -12,6 +12,9 @@ import net.minecraft.recipe.RecipeSerializer
 import net.minecraft.recipe.SpecialCraftingRecipe
 import net.minecraft.recipe.book.CraftingRecipeCategory
 import net.minecraft.registry.DynamicRegistryManager
+import net.minecraft.registry.Registries
+import net.minecraft.registry.RegistryKeys
+import net.minecraft.server.world.ServerWorld
 import net.minecraft.util.Identifier
 import net.minecraft.util.collection.DefaultedList
 import net.minecraft.world.World
@@ -75,20 +78,27 @@ class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategor
         return false
     }
 
-    override fun craft(inventory: RecipeInputInventoryAlias, registryManager: DynamicRegistryManager?): ItemStack {
+    override fun craft(inventory: RecipeInputInventoryAlias, registryManager: DynamicRegistryManager): ItemStack {
         val (compass, charges) = getRecipeItems(inventory)
 
         val result = compass.copy()
 
         val scanList = result.getScanList()
 
+
         charges.forEach { chargeStack ->
             val chargeItem = chargeStack.item
             val resourceEntry = ResourceRegistry.INSTANCE.getByChargingItem(chargeItem)
 
             val chargeValue = resourceEntry.getChargeTicks(chargeItem) * chargeStack.count
+
+            // new state setter
+            ResourceFinder.RESOURCE_FINDER_ITEM.getState(result).putResourceEntry(resourceEntry, chargeValue)
+
+
             val existingEntry = result.getScanList().firstOrNull { it.key == resourceEntry.group }
             if (existingEntry != null) {
+
                 existingEntry.lifetime += chargeValue
             } else {
                 scanList.add(ScanRecord(resourceEntry.group, resourceEntry.color, chargeValue))
