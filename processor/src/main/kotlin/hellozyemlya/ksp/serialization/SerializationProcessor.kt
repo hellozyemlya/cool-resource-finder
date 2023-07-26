@@ -13,21 +13,33 @@ val NBT_COMPOUND_TYPE_NAME = ClassName("net.minecraft.nbt", "NbtCompound")
 val MC_ITEM_TYPE_NAME = ClassName("net.minecraft.item", "Item")
 val MC_REGISTRIES_TYPE_NAME = ClassName("net.minecraft.registry", "Registries")
 val MC_BLOCK_POS_TYPE_NAME = ClassName("net.minecraft.util.math", "BlockPos")
-
-fun CodeBlock.Builder.addNbtWriteStatement(nbtVar: String, propDecl: KSPropertyDeclaration, ctx: SerializationContext): CodeBlock.Builder {
+val MC_IDENTIFIER_TYPE_NAME = ClassName("net.minecraft.util", "Identifier")
+fun CodeBlock.Builder.addNbtWriteStatement(
+    nbtVar: String,
+    propDecl: KSPropertyDeclaration,
+    ctx: SerializationContext
+): CodeBlock.Builder {
     val propType = propDecl.type.resolve()
-    when(propType.toTypeName()) {
+    propType.nullability
+    when (propType.toTypeName()) {
         INT ->
             addStatement("$nbtVar.putInt(\"${propDecl.declShortName}\", this.${propDecl.declShortName})")
+
         STRING ->
             addStatement("$nbtVar.putString(\"${propDecl.declShortName}\", this.${propDecl.declShortName})")
+
         MC_ITEM_TYPE_NAME ->
-            addStatement("$nbtVar.putString(\"${propDecl.declShortName}\", %T.ITEM.getId(this.${propDecl.declShortName}).toString())", MC_REGISTRIES_TYPE_NAME)
+            addStatement(
+                "$nbtVar.putString(\"${propDecl.declShortName}\", %T.ITEM.getId(this.${propDecl.declShortName}).toString())",
+                MC_REGISTRIES_TYPE_NAME
+            )
+
         MC_BLOCK_POS_TYPE_NAME -> {
             addStatement("$nbtVar.putIntArray(\"${propDecl.declShortName}\", intArrayOf(this.${propDecl.declShortName}.x, this.${propDecl.declShortName}.y, this.${propDecl.declShortName}.z))")
         }
+
         else -> {
-            if(ctx.targetTypes.contains(propType)) {
+            if (ctx.targetTypes.contains(propType)) {
                 addStatement("val ${propDecl.declShortName}Compound = NbtCompound()")
                 addStatement("$nbtVar.put(\"${propDecl.declShortName}\", ${propDecl.declShortName}Compound)")
                 addStatement("this.${propDecl.declShortName}.writeToNbt(${propDecl.declShortName}Compound)")
@@ -38,6 +50,43 @@ fun CodeBlock.Builder.addNbtWriteStatement(nbtVar: String, propDecl: KSPropertyD
     }
     return this
 }
+
+fun CodeBlock.Builder.addNbtReadStatement(
+    nbtVar: String,
+    propDecl: KSPropertyDeclaration,
+    trailing: String,
+    ctx: SerializationContext
+): CodeBlock.Builder {
+    val propType = propDecl.type.resolve()
+    propType.nullability
+    when (propType.toTypeName()) {
+        INT ->
+            addStatement("$nbtVar.getInt(\"${propDecl.declShortName}\")$trailing")
+        STRING ->
+            addStatement("$nbtVar.getString(\"${propDecl.declShortName}\")$trailing")
+
+        MC_ITEM_TYPE_NAME ->
+            addStatement(
+                "%T.ITEM.get(%T.tryParse($nbtVar.getString(\"${propDecl.declShortName}\")))$trailing",
+                MC_REGISTRIES_TYPE_NAME,
+                MC_IDENTIFIER_TYPE_NAME
+            )
+
+        MC_BLOCK_POS_TYPE_NAME -> {
+            addStatement("$nbtVar.getIntArray(\"${propDecl.declShortName}\").run { BlockPos(this[0], this[1], this[2]) }$trailing")
+        }
+
+        else -> {
+            if (ctx.targetTypes.contains(propType)) {
+                addStatement("create${propType.declShortName}FromNbt($nbtVar.getCompound(\"${propDecl.declShortName}\"))$trailing")
+            } else {
+                addStatement("// don't support '${propType.toTypeName()}'")
+            }
+        }
+    }
+    return this
+}
+
 class SerializationProcessor(
     private val options: Map<String, String>,
     private val logger: KSPLogger,
@@ -119,6 +168,25 @@ class SerializationProcessor(
                                 CodeBlock.builder().apply {
                                     addStatement("return ${targetType.declShortName}Impl(${targetType.ctorCallArgs})")
                                 }.build()
+                            )
+                            .build()
+                    )
+                    // impl creation from nbt
+                    addFunction(
+                        FunSpec.builder("create${targetType.declShortName}FromNbt")
+                            .addParameter("compound", NBT_COMPOUND_TYPE_NAME)
+                            .returns(targetType.toTypeName())
+                            .addCode(
+                                CodeBlock.builder()
+                                    .apply {
+                                        add("return ${targetType.declShortName}Impl(\n")
+                                        withIndent {
+                                            targetType.allProps.forEach {
+                                                addNbtReadStatement("compound", it, ",", context)
+                                            }
+                                        }
+                                        add(")")
+                                    }.build()
                             )
                             .build()
                     )
