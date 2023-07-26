@@ -11,6 +11,6 @@ abstract class ItemClientSide<TItem>(protected val item: TItem) where TItem : Ba
 
     }
 
-    open fun appendTooltip(stack: ItemStack, world: World, tooltip: MutableList<Text>, context: TooltipContext?) {
+    open fun appendTooltip(stack: ItemStack?, world: World?, tooltip: MutableList<Text>?, context: TooltipContext?) {
     }
 }

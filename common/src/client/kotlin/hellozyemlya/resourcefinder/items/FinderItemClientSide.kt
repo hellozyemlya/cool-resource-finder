@@ -260,24 +260,26 @@ class FinderItemClientSide : ItemClientSide<FinderItem>(ResourceFinder.RESOURCE_
         }
     }
 
-    override fun appendTooltip(stack: ItemStack, world: World, tooltip: MutableList<Text>, context: TooltipContext?) {
-        withState(stack) {
-            it.scanList.forEach { scanRecord ->
-                val blockName = Texts.setStyleIfAbsent(
-                    scanRecord.item.name.copyContentOnly(),
-                    Style.EMPTY.withColor(TextColor.fromRgb(ResourceRegistry.INSTANCE.getByGroup(scanRecord.item).color))
-                )
-
-                tooltip.add(
-                    Texts.join(
-                        mutableListOf(
-                            ResourceFinderTexts.SCAN_FOR,
-                            blockName,
-                            ResourceFinderTexts.SCAN_JOIN,
-                            Text.of(StringHelper.formatTicks(scanRecord.time))
-                        ), Text.of(" ")
+    override fun appendTooltip(stack: ItemStack?, world: World?, tooltip: MutableList<Text>?, context: TooltipContext?) {
+        if(stack != null && tooltip != null) {
+            withState(stack) {
+                it.scanList.forEach { scanRecord ->
+                    val blockName = Texts.setStyleIfAbsent(
+                        scanRecord.item.name.copyContentOnly(),
+                        Style.EMPTY.withColor(TextColor.fromRgb(ResourceRegistry.INSTANCE.getByGroup(scanRecord.item).color))
                     )
-                )
+
+                    tooltip.add(
+                        Texts.join(
+                            mutableListOf(
+                                ResourceFinderTexts.SCAN_FOR,
+                                blockName,
+                                ResourceFinderTexts.SCAN_JOIN,
+                                Text.of(StringHelper.formatTicks(scanRecord.time))
+                            ), Text.of(" ")
+                        )
+                    )
+                }
             }
         }
     }

@@ -34,7 +34,7 @@ abstract class BaseSplitItem<TSelf>(settings: Settings?) : Item(settings) where 
         tooltip: MutableList<Text>?,
         context: TooltipContext?
     ) {
-//        client?.appendTooltip(stack!!, world!!, tooltip!!, context)
+        client?.appendTooltip(stack, world, tooltip, context)
     }
 
     override fun inventoryTick(stack: ItemStack, world: World, entity: Entity, slot: Int, selected: Boolean) {
