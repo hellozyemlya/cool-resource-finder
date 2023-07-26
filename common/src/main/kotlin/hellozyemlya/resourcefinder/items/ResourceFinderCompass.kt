@@ -1,14 +1,18 @@
 package hellozyemlya.resourcefinder.items
 
-import hellozyemlya.common.getOrCreate
+import hellozyemlya.common.items.BaseClientAwareItem
 import hellozyemlya.resourcefinder.ResourceFinderTexts
 import hellozyemlya.resourcefinder.items.state.FinderIdAllocator
+import hellozyemlya.resourcefinder.items.state.FinderState
+import net.fabricmc.api.EnvType
+import net.fabricmc.api.Environment
 import net.minecraft.client.item.TooltipContext
 import net.minecraft.entity.Entity
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.item.Item
 import net.minecraft.item.ItemStack
 import net.minecraft.server.MinecraftServer
+import net.minecraft.server.network.ServerPlayerEntity
 import net.minecraft.text.Style
 import net.minecraft.text.Text
 import net.minecraft.text.TextColor
@@ -17,7 +21,7 @@ import net.minecraft.util.Hand
 import net.minecraft.util.StringHelper
 import net.minecraft.world.World
 
-class ResourceFinderCompass(settings: Settings) : Item(settings) {
+class ResourceFinderCompass(settings: Settings) : BaseClientAwareItem(settings) {
     public var server: MinecraftServer? = null
 
     companion object {
@@ -33,63 +37,46 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
         return false
     }
 
-    override fun appendTooltip(stack: ItemStack, world: World?, tooltip: MutableList<Text?>, context: TooltipContext?) {
-        stack.getScanList().forEach {
-            val blockName = Texts.setStyleIfAbsent(
-                it.key.name.copyContentOnly(),
-                Style.EMPTY.withColor(TextColor.fromRgb(it.color))
-            )
-            tooltip.add(
-                Texts.join(
-                    mutableListOf(
-                        ResourceFinderTexts.SCAN_FOR,
-                        blockName,
-                        ResourceFinderTexts.SCAN_JOIN,
-                        Text.of(StringHelper.formatTicks(it.lifetime))
-                    ), Text.of(" ")
-                )
-            )
-        }
-    }
-
 
     override fun inventoryTick(stack: ItemStack?, world: World?, entity: Entity, slot: Int, selected: Boolean) {
-        if (stack != null && world != null && entity is PlayerEntity) {
+        if (stack != null && world != null && entity is ServerPlayerEntity) {
             if (!world.isClient) {
-                getState(stack).inventoryTick(entity, selected)
+                getServerState(stack).inventoryTick(entity, selected)
             }
         }
     }
 
-    public fun getState(stack: ItemStack): ResourceFinderState {
-        val server = this.server
+//    @Environment(EnvType.SERVER)
+    fun getServerState(stack: ItemStack): FinderState {
+        val id = getFinderId(stack)
 
-        requireNotNull(server)
+        return server!!
+            .getWorld(World.OVERWORLD)!!
+            .persistentStateManager
+            .getOrCreate(FinderState::fromNbt, {FinderState(id)},"resource_finder$id")
+    }
 
+
+//    @Environment(EnvType.SERVER)
+    private fun getFinderId(stack: ItemStack): Int {
         val nbt = stack.orCreateNbt
-        val stateManager = server.getFinderStateManager()
-
         if (nbt.contains("finder_id")) {
-            return stateManager.getOrCreate(nbt.getInt("finder_id"), stack)
+            return nbt.getInt("finder_id")
         }
 
         val id = allocateFinderId()
         nbt.putInt("finder_id", id)
-        return stateManager.getOrCreate(id, stack)
+        return id
     }
 
+//    @Environment(EnvType.SERVER)
     private fun allocateFinderId(): Int {
         return server!!
             .getWorld(World.OVERWORLD)!!
             .persistentStateManager
-            .getOrCreate("finder_id_map", ::FinderIdAllocator)
+            .getOrCreate(FinderIdAllocator::fromNbt, ::FinderIdAllocator, "finder_id_map")
             .allocateId()
     }
 
 }
-
-public fun MinecraftServer.getFinderStateManager(): ResourceFinderStateManager {
-    return ResourceFinderStateManager
-}
-
 

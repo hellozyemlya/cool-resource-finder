@@ -3,8 +3,6 @@ package hellozyemlya.resourcefinder.items.recipes
 import com.google.common.collect.Streams
 import hellozyemlya.mccompat.RecipeInputInventoryAlias
 import hellozyemlya.resourcefinder.ResourceFinder
-import hellozyemlya.resourcefinder.items.ScanRecord
-import hellozyemlya.resourcefinder.items.getScanList
 import hellozyemlya.resourcefinder.registry.ResourceRegistry
 import net.minecraft.inventory.Inventory
 import net.minecraft.item.ItemStack
@@ -12,9 +10,6 @@ import net.minecraft.recipe.RecipeSerializer
 import net.minecraft.recipe.SpecialCraftingRecipe
 import net.minecraft.recipe.book.CraftingRecipeCategory
 import net.minecraft.registry.DynamicRegistryManager
-import net.minecraft.registry.Registries
-import net.minecraft.registry.RegistryKeys
-import net.minecraft.server.world.ServerWorld
 import net.minecraft.util.Identifier
 import net.minecraft.util.collection.DefaultedList
 import net.minecraft.world.World
@@ -69,8 +64,8 @@ class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategor
         if (compassStack != null && charges.size > 0) {
             val estimatedChargesCount =
                     Streams.concat(
-                            compassStack.getScanList().stream().map { it.key },
-                            charges.stream().map { ResourceRegistry.INSTANCE.getByChargingItem(it.item).group }
+                        ResourceFinder.RESOURCE_FINDER_ITEM.getServerState(compassStack).scanList.keys.stream(),
+                        charges.stream().map { ResourceRegistry.INSTANCE.getByChargingItem(it.item).group }
                     ).collect(Collectors.toSet()).size
             return estimatedChargesCount <= MAX_SCAN_CHARGES
         }
@@ -83,7 +78,7 @@ class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategor
 
         val result = compass.copy()
 
-        val scanList = result.getScanList()
+//        val scanList = result.getScanList()
 
 
         charges.forEach { chargeStack ->
@@ -92,17 +87,7 @@ class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategor
 
             val chargeValue = resourceEntry.getChargeTicks(chargeItem) * chargeStack.count
 
-            // new state setter
-            ResourceFinder.RESOURCE_FINDER_ITEM.getState(result).putResourceEntry(resourceEntry, chargeValue)
-
-
-            val existingEntry = result.getScanList().firstOrNull { it.key == resourceEntry.group }
-            if (existingEntry != null) {
-
-                existingEntry.lifetime += chargeValue
-            } else {
-                scanList.add(ScanRecord(resourceEntry.group, resourceEntry.color, chargeValue))
-            }
+            ResourceFinder.RESOURCE_FINDER_ITEM.getServerState(result).putResourceEntry(resourceEntry, chargeValue)
         }
 
         return result
