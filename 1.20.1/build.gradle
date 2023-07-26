@@ -1,3 +1,7 @@
+plugins {
+	id "com.google.devtools.ksp"
+}
+
 apply plugin: 'fabric-loom'
 apply plugin: 'maven-publish'
 apply plugin: 'org.jetbrains.kotlin.jvm'
@@ -109,6 +113,7 @@ sourceSets {
 		}
 		kotlin {
 			srcDirs += file("${sourcesRoot}/client/kotlin")
+			srcDirs += file("${buildDir}/generated/ksp/main/kotlin")
 		}
 		resources {
 			srcDirs += file("${sourcesRoot}/client/resources")
@@ -177,6 +182,7 @@ publishing {
 	}
 }
 dependencies {
+	implementation project(path: ':annotations')
 	// To change the versions see the gradle.properties file
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
@@ -188,6 +194,9 @@ dependencies {
 
 	modImplementation "io.github.natanfudge:kotlinx-serialization-minecraft:1.0.2+1.19.2"
 	include "io.github.natanfudge:kotlinx-serialization-minecraft:1.0.2+1.19.2"
+
+	include project(":annotations")
+	ksp(project(":processor"))
 }
 
 publishMods {

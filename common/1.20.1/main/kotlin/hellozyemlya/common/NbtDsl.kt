@@ -6,6 +6,7 @@ import net.minecraft.nbt.NbtElement
 import net.minecraft.nbt.NbtList
 import net.minecraft.registry.Registries
 import net.minecraft.util.Identifier
+import net.minecraft.util.math.BlockPos
 
 inline fun NbtCompound.int(key: String, provider: () -> Int) {
     this.putInt(key, provider())
