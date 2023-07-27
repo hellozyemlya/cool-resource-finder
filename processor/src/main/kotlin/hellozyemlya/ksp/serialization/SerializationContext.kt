@@ -6,6 +6,7 @@ import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.*
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.ParameterSpec
+import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.ksp.toTypeName
 import java.io.OutputStream
 
@@ -13,23 +14,30 @@ operator fun OutputStream.plusAssign(str: String) {
     this.write(str.toByteArray())
 }
 
-val KSType.declShortName: String
-    get() = this.declaration.simpleName.asString()
+fun KSClassDeclaration.toTypeName(): TypeName {
+    return this.asType(emptyList()).toTypeName()
+}
 
-val KSType.allProps: List<KSPropertyDeclaration>
-    get() = (this.declaration as KSClassDeclaration).getAllProperties().toList()
+val KSClassDeclaration.declShortName: String
+    get() = this.simpleName.asString()
+
+val KSClassDeclaration.companionObject: KSClassDeclaration
+    get() = this.declarations.filterIsInstance<KSClassDeclaration>().first { it.isCompanionObject }
+
+val KSClassDeclaration.allProps: List<KSPropertyDeclaration>
+    get() = this.getAllProperties().toList()
 
 val KSPropertyDeclaration.declShortName: String
     get() = this.simpleName.asString()
 
-val KSType.ctorParameters: List<ParameterSpec>
+val KSClassDeclaration.ctorParameters: List<ParameterSpec>
     get() = this.allProps.map { propertyDecl ->
         ParameterSpec
             .builder(propertyDecl.declShortName, propertyDecl.type.resolve().toTypeName())
             .build()
     }.toList()
 
-val KSType.ctorCallArgs: String
+val KSClassDeclaration.ctorCallArgs: String
     get() = this.allProps.joinToString(", ") { it.declShortName }
 
 fun Resolver.getKSTypeByName(name: String): KSType {
@@ -96,7 +104,7 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
     private val StringList = resolver.getKSTypeByName("kotlin.collections.MutableList", StringType)
     private val NbtListType = resolver.getKSTypeByName("net.minecraft.nbt.NbtList")
 
-    private val generatedClassDecls: MutableList<KSClassDeclaration> = ArrayList()
+    public val generatedClassDecls: MutableList<KSClassDeclaration> = ArrayList()
     private val generatedClassTypes: MutableList<KSType> = ArrayList()
 
     fun addClassesForGeneration(candidates: Sequence<KSClassDeclaration>): Boolean {
@@ -142,7 +150,7 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
 
             isValid = false
             logger.error(
-                "super types not supported in @McSerialize classes, ${superTypeRef.resolve().declShortName}",
+                "super types not supported in @McSerialize classes, ${superTypeRef.resolve().declaration.simpleName.asString()}",
                 superTypeRef
             )
         }
@@ -153,6 +161,11 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
                 isValid = false
                 logger.error("property has unsupported type", propDecl)
             }
+        }
+
+        if(candidate.declarations.filterIsInstance<KSClassDeclaration>().firstOrNull { it.isCompanionObject } == null) {
+            logger.error("serializable requires companion object to assign creation functions", candidate)
+            isValid = false
         }
 
         return isValid
@@ -196,33 +209,6 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
 
 
     fun printInfo(outputStream: OutputStream) {
-
-        supportedTypes.forEach {
-            outputStream += "// supports ${it.declaration.qualifiedName!!.asString()} \n"
-            it.arguments.forEach { arg ->
-
-                outputStream += "//     arg ${arg} \n"
-            }
-        }
-
-        targetTypes.forEach {
-            outputStream += "// target ${it.declaration.qualifiedName!!.asString()} \n"
-            it.allProps.forEach { prop ->
-                outputStream += "//     prop ${prop.declShortName} \n"
-                outputStream += "//         type ${prop.type} \n"
-
-                val propResolvedType = prop.type.resolve()
-                outputStream += "//             !!! ${propResolvedType.declaration} \n"
-
-                propResolvedType.declaration.typeParameters.forEach { typeDeclArg ->
-                    outputStream += "//             tda ${typeDeclArg} \n"
-                }
-                prop.type.resolve().arguments.forEach { arg ->
-
-                    outputStream += "//             arg ${arg.type} \n"
-                }
-            }
-        }
     }
 
 
@@ -337,7 +323,7 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
 
         // our custom structures
         { type: KSType -> generatedClassTypes.contains(type) } to { sourceType, nbtKey, compound, _ ->
-            add("read${sourceType.declShortName}From($compound.getCompound(\"$nbtKey\"))")
+            add("${sourceType.declaration.simpleName.asString()}.readFrom($compound.getCompound(\"$nbtKey\"))")
         },
         // map
         { type: KSType -> type.declaration == MutableMapDecl } to { sourceType, nbtKey, compound, hasWrapper ->
@@ -423,7 +409,7 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
         if (typeToPacketRead.containsKey(nonNullableType)) {
             typeToPacketRead[nonNullableType]!!(bufVar)
         } else if (generatedClassTypes.contains(nonNullableType)) {
-            add("read${nonNullableType.declShortName}From($bufVar)")
+            add("${nonNullableType.declaration.simpleName.asString()}.readFrom($bufVar)")
         } else if (nonNullableType.declaration == MutableMapDecl) {
             if (!isNullable)
                 beginControlFlow("run")
