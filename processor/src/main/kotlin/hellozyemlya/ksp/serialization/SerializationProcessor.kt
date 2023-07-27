@@ -10,6 +10,7 @@ import com.squareup.kotlinpoet.ksp.toTypeName
 import com.squareup.kotlinpoet.ksp.writeTo
 
 val NBT_COMPOUND_TYPE_NAME = ClassName("net.minecraft.nbt", "NbtCompound")
+val NBT_ELEMENT_TYPE_NAME = ClassName("net.minecraft.nbt", "NbtElement")
 val MC_ITEM_TYPE_NAME = ClassName("net.minecraft.item", "Item")
 val MC_REGISTRIES_TYPE_NAME = ClassName("net.minecraft.registry", "Registries")
 val MC_BLOCK_POS_TYPE_NAME = ClassName("net.minecraft.util.math", "BlockPos")
@@ -261,7 +262,7 @@ class SerializationProcessor(
                                             withIndent {
                                                 val propIt = targetType.allProps.iterator()
                                                 while (propIt.hasNext()) {
-                                                    addNbtRead("compound", propIt.next(), context)
+                                                    nbtReadStmt(propIt.next(), "compound")
                                                     if(propIt.hasNext()) {
                                                         add(",\n")
                                                     }

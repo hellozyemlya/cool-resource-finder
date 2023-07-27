@@ -225,7 +225,7 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
         },
         IntList to { source, nbtKey, nbtVar ->
             addStatement("$nbtVar.putIntArray(\"$nbtKey\", $source)")
-        },
+        }
     )
 
     fun CodeBlock.Builder.nbtPutStmt(propType: KSType, nbtKey: String, source: String, nbtVar: String) {
@@ -249,9 +249,70 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
             endControlFlow()
         }
     }
+
     fun CodeBlock.Builder.nbtPutStmt(propDecl: KSPropertyDeclaration, propSource: String, nbtVar: String) {
         val propType = propDecl.type.resolve()
         nbtPutStmt(propType, propDecl.declShortName, "${propSource}.${propDecl.declShortName}", nbtVar)
+    }
+
+    private val typeToNbtRead = hashMapOf<KSType, CodeBlock.Builder.(nbtKey: String, nbtVar: String) -> Unit>(
+        IntType to { nbtKey, nbtVar ->
+            add("$nbtVar.getInt(\"$nbtKey\")")
+        },
+        StringType to { nbtKey, nbtVar ->
+            add("$nbtVar.getString(\"$nbtKey\")")
+        },
+        ItemType to { nbtKey, nbtVar ->
+            add(
+                "%T.ITEM.get(%T.tryParse($nbtVar.getString(\"$nbtKey\")))",
+                MC_REGISTRIES_TYPE_NAME,
+                MC_IDENTIFIER_TYPE_NAME
+            )
+        },
+        BlockPosType to { nbtKey, nbtVar ->
+            add("$nbtVar.getIntArray(\"$nbtKey\").run { BlockPos(this[0], this[1], this[2]) }")
+        },
+        IntList to { nbtKey, nbtVar ->
+            add("$nbtVar.getIntArray(\"$nbtKey\").toMutableList()")
+        }
+    )
+
+
+    fun CodeBlock.Builder.nbtReadStmt(propType: KSType, nbtKey: String, nbtVar: String) {
+        if (typeToNbtRead.containsKey(propType)) {
+            typeToNbtRead[propType]!!(nbtKey, nbtVar)
+        } else if (generatedClassTypes.contains(propType)) {
+            add("read${propType.declShortName}From($nbtVar.getCompound(\"$nbtKey\"))")
+        } else if (propType.declaration == MutableMapDecl) {
+            beginControlFlow("run")
+            val keyType = propType.arguments[0].type!!.resolve()
+            val valueType = propType.arguments[1].type!!.resolve()
+            addStatement(
+                "val result = %T()", resolver.getKSTypeByName(
+                    "java.util.HashMap", keyType, valueType
+                ).toTypeName()
+            )
+            addStatement("val list = $nbtVar.getList(\"$nbtKey\", %T.COMPOUND_TYPE.toInt())", NBT_ELEMENT_TYPE_NAME)
+            beginControlFlow("for(entry in list.map { it as %T })", NBT_COMPOUND_TYPE_NAME)
+            add("result.put(\n")
+            indent()
+            nbtReadStmt(keyType, "key", "entry")
+            add(",\n")
+            nbtReadStmt(valueType, "value", "entry")
+            add("\n")
+            unindent()
+            add(")\n")
+            endControlFlow()
+            addStatement("result")
+//            endControlFlow()
+            unindent()
+            add("}")
+        }
+    }
+
+    fun CodeBlock.Builder.nbtReadStmt(propDecl: KSPropertyDeclaration, nbtVar: String) {
+        val propType = propDecl.type.resolve()
+        nbtReadStmt(propType, propDecl.declShortName, nbtVar)
     }
     // endregion
 }
