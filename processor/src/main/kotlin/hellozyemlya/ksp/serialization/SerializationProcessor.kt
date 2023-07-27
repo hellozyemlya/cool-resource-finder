@@ -175,6 +175,13 @@ class SerializationProcessor(
 
         if (!symbols.iterator().hasNext()) return emptyList()
 
+        val context = SerializationContext(resolver, logger)
+
+        if(!context.addClassesForGeneration(symbols)) {
+            // some classes not passed validation
+            return emptyList()
+        }
+
         val deps = Dependencies(true, *resolver.getAllFiles().toList().toTypedArray())
         val file = codeGenerator.createNewFile(
             // Make sure to associate the generated file with sources to keep/maintain it across incremental builds.
@@ -184,8 +191,6 @@ class SerializationProcessor(
             packageName = "hellozyemlya.serialization.generated",
             fileName = "GeneratedSerialization"
         )
-
-        val context = SerializationContext(resolver)
 
         symbols.forEach {
             context.addTargetType(it.asType(emptyList()))

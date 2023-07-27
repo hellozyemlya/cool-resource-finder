@@ -11,6 +11,8 @@ interface CustomStruct {
     val innerStruct: CustomStruct2
     val itemField: Item
     val blockPos: BlockPos
+    val listExample: MutableList<Int>
+    val mapField: MutableMap<Item, Int>
 }
 
 @McSerialize
