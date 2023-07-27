@@ -36,11 +36,52 @@ fun Resolver.getKSTypeByName(name: String): KSType {
     return this.getClassDeclarationByName(name)!!.asType(emptyList())
 }
 
+
+inline fun <T> KSType.unwrapNull(
+    nonNullArg: T,
+    nullArg: T,
+    block: (nonNullable: KSType, wasNullable: Boolean, arg: T) -> Unit
+) {
+    val isNullable = this.nullability == Nullability.NULLABLE
+
+
+    val nonNullableType = if (isNullable) {
+        this.makeNotNullable()
+    } else {
+        this
+    }
+
+    val arg = if (isNullable) {
+        nullArg
+    } else {
+        nonNullArg
+    }
+
+    block(nonNullableType, isNullable, arg)
+}
+
+fun Boolean.doIf(block: () -> Unit) {
+    if (this) {
+        block()
+    }
+}
+
+fun Boolean.doUnless(block: () -> Unit) {
+    if (!this) {
+        block()
+    }
+}
+
 fun Resolver.getKSTypeByName(name: String, vararg argTypes: KSType): KSType {
     val mainTypeDecl = this.getClassDeclarationByName(name)!!
     return mainTypeDecl.asType(argTypes.map {
         this.getTypeArgument(this.createKSTypeReferenceFromKSType(it), Variance.INVARIANT)
     })
+}
+
+public fun CodeBlock.Builder.endControlFlowNoNl(): CodeBlock.Builder = apply {
+    unindent()
+    add("}")
 }
 
 class SerializationContext(private val resolver: Resolver, private val logger: KSPLogger) {
@@ -73,7 +114,7 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
         candidate: KSClassDeclaration,
         candidates: Sequence<KSClassDeclaration>
     ): Boolean {
-        val candidatesTypes = candidates.map { it.asType(emptyList()) }.toList()
+        val candidatesTypes = candidates.map { it.asType(emptyList()).makeNotNullable() }.toList()
 
         var isValid = true
         if (candidate.classKind != ClassKind.INTERFACE) {
@@ -107,7 +148,7 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
         }
 
         candidate.getAllProperties().forEach { propDecl ->
-            val propType = propDecl.type.resolve()
+            val propType = propDecl.type.resolve().makeNotNullable()
             if (!isTypeSupported(propType, candidatesTypes)) {
                 isValid = false
                 logger.error("property has unsupported type", propDecl)
@@ -187,128 +228,158 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
 
     // region Statement Helper
 
-//
-//        MC_BLOCK_POS_TYPE_NAME -> {
-//            addStatement("$nbtVar.putIntArray(\"${propDecl.declShortName}\", intArrayOf(this.${propDecl.declShortName}.x, this.${propDecl.declShortName}.y, this.${propDecl.declShortName}.z))")
-//        }
-//
-//        else -> {
-//            if (ctx.targetTypes.contains(propType)) {
-//                addStatement("val ${propDecl.declShortName}Compound = NbtCompound()")
-//                addStatement("$nbtVar.put(\"${propDecl.declShortName}\", ${propDecl.declShortName}Compound)")
-//                addStatement("this.${propDecl.declShortName}.writeTo(${propDecl.declShortName}Compound)")
-//            } else {
-//                addStatement("// don't support '${propType.toTypeName()}'")
-//            }
-//        }
-//    }
-
-
-    private val typeToNbtPut = hashMapOf<KSType, CodeBlock.Builder.(String, String, String) -> Unit>(
-        IntType to { source, nbtKey, nbtVar ->
-            addStatement("$nbtVar.putInt(\"$nbtKey\", $source)")
+    private val codeGenNbtPutMap: List<Pair<KSTypePredicate, NbtPutFunc>> = listOf(
+        // wrapping nullable must match first
+        { type: KSType -> type.isMarkedNullable } to { sourceType, source, nbtKey, compound, _ ->
+            val nonNullableType = sourceType.makeNotNullable()
+            beginControlFlow("$source?.let { nonNull ->")
+            nbtPutStmt(nonNullableType, "nonNull", nbtKey, compound, true)
+            endControlFlow()
         },
-        StringType to { source, nbtKey, nbtVar ->
-            addStatement("$nbtVar.putString(\"$nbtKey\", $source)")
+
+        ofType(IntType) to { _, source, nbtKey, compound, _ ->
+            addStatement("$compound.putInt(%S, %L)", nbtKey, source)
         },
-        ItemType to { source, nbtKey, nbtVar ->
+
+        ofType(StringType) to { _, source, nbtKey, compound, _ ->
+            addStatement("$compound.putString(\"$nbtKey\", $source)")
+        },
+        ofType(ItemType) to { _, source, nbtKey, compound, _ ->
             addStatement(
-                "$nbtVar.putString(\"$nbtKey\", %T.ITEM.getId($source).toString())",
+                "$compound.putString(\"$nbtKey\", %T.ITEM.getId($source).toString())",
                 MC_REGISTRIES_TYPE_NAME
             )
         },
-        BlockPosType to { source, nbtKey, nbtVar ->
-            addStatement("$nbtVar.putIntArray(\"$nbtKey\", intArrayOf($source.x, $source.y, $source.z))")
+
+        ofType(BlockPosType) to { _, source, nbtKey, compound, _ ->
+            addStatement("$compound.putIntArray(\"$nbtKey\", intArrayOf($source.x, $source.y, $source.z))")
         },
-        IntList to { source, nbtKey, nbtVar ->
-            addStatement("$nbtVar.putIntArray(\"$nbtKey\", $source)")
+
+        ofType(IntList) to { _, source, nbtKey, compound, _ ->
+            addStatement("$compound.putIntArray(\"$nbtKey\", $source)")
+        },
+
+        // our custom structures
+        { type: KSType -> generatedClassTypes.contains(type) } to { _, source, nbtKey, compound, hasWrapper ->
+            hasWrapper.doUnless { beginControlFlow("run") }
+            addStatement("val childCompound = NbtCompound()")
+            addStatement("$compound.put(\"$nbtKey\", childCompound)")
+            addStatement("$source.writeTo(childCompound)")
+            hasWrapper.doUnless { endControlFlow() }
+        },
+        // map
+        { type: KSType -> type.declaration == MutableMapDecl } to { sourceType, source, nbtKey, compound, hasWrapper ->
+            hasWrapper.doUnless { beginControlFlow("run") }
+            addStatement("val entries = %T()", NbtListType.toTypeName())
+            addStatement("$compound.put(\"$nbtKey\", entries)")
+            beginControlFlow("for(entry in $source)")
+            addStatement("val entryNbt = NbtCompound()")
+            nbtPutStmt(sourceType.arguments[0].type!!.resolve(), "entry.key", "key", "entryNbt", true)
+            nbtPutStmt(sourceType.arguments[1].type!!.resolve(), "entry.value", "value", "entryNbt", true)
+            endControlFlow()
+            hasWrapper.doUnless { endControlFlow() }
         }
     )
 
-    fun CodeBlock.Builder.nbtPutStmt(propType: KSType, nbtKey: String, source: String, nbtVar: String) {
-        if (typeToNbtPut.containsKey(propType)) {
-            typeToNbtPut[propType]!!(source, nbtKey, nbtVar)
-        } else if (generatedClassTypes.contains(propType)) {
-            beginControlFlow("run")
-            addStatement("val childCompound = NbtCompound()")
-            addStatement("$nbtVar.put(\"$nbtKey\", childCompound)")
-            addStatement("$source.writeTo(childCompound)")
-            endControlFlow()
-        } else if (propType.declaration == MutableMapDecl) {
-            beginControlFlow("run")
-            addStatement("val entries = %T()", NbtListType.toTypeName())
-            addStatement("$nbtVar.put(\"$nbtKey\", entries)")
-            beginControlFlow("for(entry in $source)")
-            addStatement("val entryNbt = NbtCompound()")
-            nbtPutStmt(propType.arguments[0].type!!.resolve(), "key", "entry.key", "entryNbt")
-            nbtPutStmt(propType.arguments[1].type!!.resolve(), "value", "entry.value", "entryNbt")
-            endControlFlow()
-            endControlFlow()
-        }
+    private fun CodeBlock.Builder.nbtPutStmt(
+        sourceType: KSType,
+        source: String,
+        nbtKey: String,
+        compound: String,
+        hasWrapper: Boolean = false
+    ) {
+        val generator = codeGenNbtPutMap
+            .first { it.first(sourceType) }
+            .second
+        this.generator(sourceType, source, nbtKey, compound, hasWrapper)
     }
 
-    fun CodeBlock.Builder.nbtPutStmt(propDecl: KSPropertyDeclaration, propSource: String, nbtVar: String) {
+    fun CodeBlock.Builder.nbtWriteProperty(propDecl: KSPropertyDeclaration, thisVar: String, nbtVar: String) {
         val propType = propDecl.type.resolve()
-        nbtPutStmt(propType, propDecl.declShortName, "${propSource}.${propDecl.declShortName}", nbtVar)
+        nbtPutStmt(propType, "${thisVar}.${propDecl.declShortName}", propDecl.declShortName, nbtVar)
     }
 
-    private val typeToNbtRead = hashMapOf<KSType, CodeBlock.Builder.(nbtKey: String, nbtVar: String) -> Unit>(
-        IntType to { nbtKey, nbtVar ->
-            add("$nbtVar.getInt(\"$nbtKey\")")
+    private val codeGenNbtGetMap: List<Pair<KSTypePredicate, NbtGetFunc>> = listOf(
+        // wrapping nullable must match first
+        { type: KSType -> type.isMarkedNullable } to { sourceType, nbtKey, compound, _ ->
+            val nonNullableType = sourceType.makeNotNullable()
+            beginControlFlow("run")
+            beginControlFlow("if($compound.contains(\"$nbtKey\"))")
+            nbtReadStmt(nonNullableType, nbtKey, compound, true)
+            nextControlFlow("else")
+            addStatement("null")
+            endControlFlow()
+            endControlFlowNoNl()
         },
-        StringType to { nbtKey, nbtVar ->
-            add("$nbtVar.getString(\"$nbtKey\")")
+
+        ofType(IntType) to { _, nbtKey, compound, _ ->
+            add("$compound.getInt(\"$nbtKey\")")
         },
-        ItemType to { nbtKey, nbtVar ->
+
+        ofType(StringType) to { _, nbtKey, compound, _ ->
+            add("$compound.getString(\"$nbtKey\")")
+        },
+        ofType(ItemType) to { _, nbtKey, compound, _ ->
             add(
-                "%T.ITEM.get(%T.tryParse($nbtVar.getString(\"$nbtKey\")))",
+                "%T.ITEM.get(%T.tryParse($compound.getString(\"$nbtKey\")))",
                 MC_REGISTRIES_TYPE_NAME,
                 MC_IDENTIFIER_TYPE_NAME
             )
         },
-        BlockPosType to { nbtKey, nbtVar ->
-            add("$nbtVar.getIntArray(\"$nbtKey\").run { BlockPos(this[0], this[1], this[2]) }")
+
+        ofType(BlockPosType) to { _, nbtKey, compound, _ ->
+            add("$compound.getIntArray(\"$nbtKey\").run { BlockPos(this[0], this[1], this[2]) }")
         },
-        IntList to { nbtKey, nbtVar ->
-            add("$nbtVar.getIntArray(\"$nbtKey\").toMutableList()")
-        }
-    )
 
+        ofType(IntList) to { _, nbtKey, compound, _ ->
+            add("$compound.getIntArray(\"$nbtKey\").toMutableList()")
+        },
 
-    fun CodeBlock.Builder.nbtReadStmt(propType: KSType, nbtKey: String, nbtVar: String) {
-        if (typeToNbtRead.containsKey(propType)) {
-            typeToNbtRead[propType]!!(nbtKey, nbtVar)
-        } else if (generatedClassTypes.contains(propType)) {
-            add("read${propType.declShortName}From($nbtVar.getCompound(\"$nbtKey\"))")
-        } else if (propType.declaration == MutableMapDecl) {
-            beginControlFlow("run")
-            val keyType = propType.arguments[0].type!!.resolve()
-            val valueType = propType.arguments[1].type!!.resolve()
+        // our custom structures
+        { type: KSType -> generatedClassTypes.contains(type) } to { sourceType, nbtKey, compound, _ ->
+            add("read${sourceType.declShortName}From($compound.getCompound(\"$nbtKey\"))")
+        },
+        // map
+        { type: KSType -> type.declaration == MutableMapDecl } to { sourceType, nbtKey, compound, hasWrapper ->
+            hasWrapper.doUnless { beginControlFlow("run") }
+
+            val keyType = sourceType.arguments[0].type!!.resolve()
+            val valueType = sourceType.arguments[1].type!!.resolve()
             addStatement(
                 "val result = %T()", resolver.getKSTypeByName(
                     "java.util.HashMap", keyType, valueType
                 ).toTypeName()
             )
-            addStatement("val list = $nbtVar.getList(\"$nbtKey\", %T.COMPOUND_TYPE.toInt())", NBT_ELEMENT_TYPE_NAME)
+            addStatement("val list = $compound.getList(\"$nbtKey\", %T.COMPOUND_TYPE.toInt())", NBT_ELEMENT_TYPE_NAME)
             beginControlFlow("for(entry in list.map { it as %T })", NBT_COMPOUND_TYPE_NAME)
             add("val key = ")
-            nbtReadStmt(keyType, "key", "entry")
+            nbtReadStmt(keyType, "key", "entry", true)
             add("\n")
             add("val value = ")
-            nbtReadStmt(valueType, "value", "entry")
+            nbtReadStmt(valueType, "value", "entry", true)
             add("\n")
             addStatement("result[key] = value")
             endControlFlow()
             addStatement("result")
-            // next two statements replace endControlFlow(), but without newline symbol
-            unindent()
-            add("}")
+            hasWrapper.doUnless { endControlFlowNoNl() }
         }
+    )
+
+    private fun CodeBlock.Builder.nbtReadStmt(
+        targetType: KSType,
+        nbtKey: String,
+        compound: String,
+        hasWrapper: Boolean = false
+    ) {
+        val generator = codeGenNbtGetMap
+            .first { it.first(targetType) }
+            .second
+        this.generator(targetType, nbtKey, compound, hasWrapper)
     }
 
-    fun CodeBlock.Builder.nbtReadStmt(propDecl: KSPropertyDeclaration, nbtVar: String) {
+    fun CodeBlock.Builder.nbtReadProperty(propDecl: KSPropertyDeclaration, compound: String) {
         val propType = propDecl.type.resolve()
-        nbtReadStmt(propType, propDecl.declShortName, nbtVar)
+        nbtReadStmt(propType, propDecl.declShortName, compound)
     }
 
 
@@ -336,14 +407,28 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
 
 
     fun CodeBlock.Builder.packetReadStmt(propType: KSType, bufVar: String) {
-        if (typeToPacketRead.containsKey(propType)) {
-            typeToPacketRead[propType]!!(bufVar)
-        } else if (generatedClassTypes.contains(propType)) {
-            add("read${propType.declShortName}From($bufVar)")
-        } else if (propType.declaration == MutableMapDecl) {
+        val isNullable = propType.nullability == Nullability.NULLABLE
+
+        val nonNullableType = if (isNullable) {
+            propType.makeNotNullable()
+        } else {
+            propType
+        }
+
+        if (isNullable) {
             beginControlFlow("run")
-            val keyType = propType.arguments[0].type!!.resolve()
-            val valueType = propType.arguments[1].type!!.resolve()
+            beginControlFlow("if($bufVar.readBoolean())")
+        }
+
+        if (typeToPacketRead.containsKey(nonNullableType)) {
+            typeToPacketRead[nonNullableType]!!(bufVar)
+        } else if (generatedClassTypes.contains(nonNullableType)) {
+            add("read${nonNullableType.declShortName}From($bufVar)")
+        } else if (nonNullableType.declaration == MutableMapDecl) {
+            if (!isNullable)
+                beginControlFlow("run")
+            val keyType = nonNullableType.arguments[0].type!!.resolve()
+            val valueType = nonNullableType.arguments[1].type!!.resolve()
             addStatement(
                 "val result = %T()", resolver.getKSTypeByName(
                     "java.util.HashMap", keyType, valueType
@@ -359,9 +444,15 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
             addStatement("result[key] = value")
             endControlFlow()
             addStatement("result")
-            // next two statements replace endControlFlow(), but without newline symbol
-            unindent()
-            add("}")
+            if (!isNullable) {
+                endControlFlowNoNl()
+            }
+        }
+        if (isNullable) {
+            nextControlFlow("else")
+            addStatement("null")
+            endControlFlow()
+            endControlFlowNoNl()
         }
     }
 
@@ -396,15 +487,35 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
     )
 
     fun CodeBlock.Builder.packetPutStmt(propType: KSType, source: String, bufVar: String) {
-        if (typeToPacketPut.containsKey(propType)) {
-            typeToPacketPut[propType]!!(source, bufVar)
-        } else if (generatedClassTypes.contains(propType)) {
-            addStatement("$source.writeTo($bufVar)")
-        } else if (propType.declaration == MutableMapDecl) {
-            addStatement("$bufVar.writeInt($source.size)")
-            beginControlFlow("for(entry in $source)")
-            packetPutStmt(propType.arguments[0].type!!.resolve(), "entry.key", bufVar)
-            packetPutStmt(propType.arguments[1].type!!.resolve(),"entry.value", bufVar)
+        val isNullable = propType.nullability == Nullability.NULLABLE
+
+        val nonNullableType = if (isNullable) {
+            propType.makeNotNullable()
+        } else {
+            propType
+        }
+
+        val nonNullableSource = if (isNullable) {
+            "it"
+        } else {
+            source
+        }
+        if (isNullable) {
+            addStatement("$bufVar.writeBoolean($source != null)")
+            beginControlFlow("$source?.let")
+        }
+        if (typeToPacketPut.containsKey(nonNullableType)) {
+            typeToPacketPut[nonNullableType]!!(nonNullableSource, bufVar)
+        } else if (generatedClassTypes.contains(nonNullableType)) {
+            addStatement("$nonNullableSource.writeTo($bufVar)")
+        } else if (nonNullableType.declaration == MutableMapDecl) {
+            addStatement("$bufVar.writeInt($nonNullableSource.size)")
+            beginControlFlow("for(entry in $nonNullableSource)")
+            packetPutStmt(nonNullableType.arguments[0].type!!.resolve(), "entry.key", bufVar)
+            packetPutStmt(nonNullableType.arguments[1].type!!.resolve(), "entry.value", bufVar)
+            endControlFlow()
+        }
+        if (isNullable) {
             endControlFlow()
         }
     }
@@ -414,4 +525,12 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
         packetPutStmt(propType, "${propSource}.${propDecl.declShortName}", nbtVar)
     }
     // endregion
+}
+
+typealias KSTypePredicate = (type: KSType) -> Boolean
+typealias NbtPutFunc = CodeBlock.Builder.(sourceType: KSType, source: String, nbtKey: String, compound: String, hasWrapper: Boolean) -> Unit
+typealias NbtGetFunc = CodeBlock.Builder.(sourceType: KSType, nbtKey: String, compound: String, hasWrapper: Boolean) -> Unit
+
+fun ofType(type: KSType): KSTypePredicate {
+    return { it == type }
 }

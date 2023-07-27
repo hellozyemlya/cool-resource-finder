@@ -262,7 +262,7 @@ class SerializationProcessor(
                                             withIndent {
                                                 val propIt = targetType.allProps.iterator()
                                                 while (propIt.hasNext()) {
-                                                    nbtReadStmt(propIt.next(), "compound")
+                                                    nbtReadProperty(propIt.next(), "compound")
                                                     if(propIt.hasNext()) {
                                                         add(",\n")
                                                     }
@@ -304,7 +304,7 @@ class SerializationProcessor(
                                 .addCode(
                                     CodeBlock.builder().apply {
                                         targetType.allProps.forEach {
-                                            nbtPutStmt(it,"this", "compound")
+                                            nbtWriteProperty(it,"this", "compound")
                                         }
                                     }.build()
                                 )
