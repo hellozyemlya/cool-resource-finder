@@ -13,6 +13,7 @@ interface CustomStruct {
     val blockPos: BlockPos
     val listExample: MutableList<Int>
     val mapField: MutableMap<Item, Int>
+    val recursiveMapField: MutableMap<Item, CustomStruct>
 }
 
 @McSerialize

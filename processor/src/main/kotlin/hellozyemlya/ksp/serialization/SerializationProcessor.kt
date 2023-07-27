@@ -200,133 +200,136 @@ class SerializationProcessor(
         file += "package hellozyemlya.serialization.generated\n"
         context.printInfo(file)
 
-        val generatedSuperFile = FileSpec
-            .builder("hellozyemlya.serialization.generated", "GeneratedStuff")
-            .apply {
-                context.targetTypes.forEach { targetType ->
-                    // impl class
-                    addType(
-                        TypeSpec.classBuilder("${targetType.declShortName}Impl")
-                            .addSuperinterface(targetType.toTypeName())
-                            .apply {
-                                targetType.allProps.forEach { propertyDecl ->
-                                    addProperty(
-                                        PropertySpec
-                                            .builder(
-                                                propertyDecl.declShortName,
-                                                propertyDecl.type.resolve().toTypeName()
-                                            )
-                                            .addModifiers(KModifier.PUBLIC, KModifier.OVERRIDE)
-                                            .mutable(propertyDecl.isMutable)
-                                            .build()
-                                    )
+        context.apply {
+            val generatedSuperFile = FileSpec
+                .builder("hellozyemlya.serialization.generated", "GeneratedStuff")
+                .apply {
+                    context.targetTypes.forEach { targetType ->
+                        // impl class
+                        addType(
+                            TypeSpec.classBuilder("${targetType.declShortName}Impl")
+                                .addSuperinterface(targetType.toTypeName())
+                                .apply {
+                                    targetType.allProps.forEach { propertyDecl ->
+                                        addProperty(
+                                            PropertySpec
+                                                .builder(
+                                                    propertyDecl.declShortName,
+                                                    propertyDecl.type.resolve().toTypeName()
+                                                )
+                                                .addModifiers(KModifier.PUBLIC, KModifier.OVERRIDE)
+                                                .mutable(propertyDecl.isMutable)
+                                                .build()
+                                        )
+                                    }
                                 }
-                            }
-                            .addFunction(
-                                FunSpec.constructorBuilder()
-                                    .addParameters(targetType.ctorParameters)
-                                    .addCode(
-                                        CodeBlock.builder().apply {
-                                            targetType.allProps.forEach {
-                                                addStatement("this.${it.declShortName} = ${it.declShortName}")
+                                .addFunction(
+                                    FunSpec.constructorBuilder()
+                                        .addParameters(targetType.ctorParameters)
+                                        .addCode(
+                                            CodeBlock.builder().apply {
+                                                targetType.allProps.forEach {
+                                                    addStatement("this.${it.declShortName} = ${it.declShortName}")
+                                                }
+                                            }.build()
+                                        )
+                                        .build()
+                                )
+                                .build()
+                        )
+                        // impl creation function
+                        addFunction(
+                            FunSpec.builder("create${targetType.declShortName}")
+                                .addParameters(targetType.ctorParameters)
+                                .returns(targetType.toTypeName())
+                                .addCode(
+                                    CodeBlock.builder().apply {
+                                        addStatement("return ${targetType.declShortName}Impl(${targetType.ctorCallArgs})")
+                                    }.build()
+                                )
+                                .build()
+                        )
+                        // read from nbt
+                        addFunction(
+                            FunSpec.builder("read${targetType.declShortName}From")
+                                .addParameter("compound", NBT_COMPOUND_TYPE_NAME)
+                                .returns(targetType.toTypeName())
+                                .addCode(
+                                    CodeBlock.builder()
+                                        .apply {
+                                            add("return ${targetType.declShortName}Impl(\n")
+                                            withIndent {
+                                                val propIt = targetType.allProps.iterator()
+                                                while (propIt.hasNext()) {
+                                                    addNbtRead("compound", propIt.next(), context)
+                                                    if(propIt.hasNext()) {
+                                                        add(",\n")
+                                                    }
+                                                }
                                             }
+                                            add("\n)")
                                         }.build()
-                                    )
-                                    .build()
-                            )
-                            .build()
-                    )
-                    // impl creation function
-                    addFunction(
-                        FunSpec.builder("create${targetType.declShortName}")
-                            .addParameters(targetType.ctorParameters)
-                            .returns(targetType.toTypeName())
-                            .addCode(
-                                CodeBlock.builder().apply {
-                                    addStatement("return ${targetType.declShortName}Impl(${targetType.ctorCallArgs})")
-                                }.build()
-                            )
-                            .build()
-                    )
-                    // read from nbt
-                    addFunction(
-                        FunSpec.builder("read${targetType.declShortName}From")
-                            .addParameter("compound", NBT_COMPOUND_TYPE_NAME)
-                            .returns(targetType.toTypeName())
-                            .addCode(
-                                CodeBlock.builder()
-                                    .apply {
-                                        add("return ${targetType.declShortName}Impl(\n")
-                                        withIndent {
-                                            val propIt = targetType.allProps.iterator()
-                                            while (propIt.hasNext()) {
-                                                addNbtRead("compound", propIt.next(), context)
-                                                if(propIt.hasNext()) {
-                                                    add(",\n")
+                                )
+                                .build()
+                        )
+                        // read from buf
+                        addFunction(
+                            FunSpec.builder("read${targetType.declShortName}From")
+                                .addParameter("buf", MC_PACKET_BUF_TYPE_NAME)
+                                .returns(targetType.toTypeName())
+                                .addCode(
+                                    CodeBlock.builder()
+                                        .apply {
+                                            add("return ${targetType.declShortName}Impl(\n")
+                                            withIndent {
+                                                val propIt = targetType.allProps.iterator()
+                                                while (propIt.hasNext()) {
+                                                    addBufRead("buf", propIt.next(), context)
+                                                    if(propIt.hasNext()) {
+                                                        add(",\n")
+                                                    }
                                                 }
                                             }
+                                            add("\n)")
+                                        }.build()
+                                )
+                                .build()
+                        )
+                        // write to nbt
+                        addFunction(
+                            FunSpec.builder("writeTo")
+                                .receiver(targetType.toTypeName())
+                                .addParameter("compound", NBT_COMPOUND_TYPE_NAME)
+                                .addCode(
+                                    CodeBlock.builder().apply {
+                                        targetType.allProps.forEach {
+                                            nbtPutStmt(it,"this", "compound")
                                         }
-                                        add("\n)")
                                     }.build()
-                            )
-                            .build()
-                    )
-                    // read from buf
-                    addFunction(
-                        FunSpec.builder("read${targetType.declShortName}From")
-                            .addParameter("buf", MC_PACKET_BUF_TYPE_NAME)
-                            .returns(targetType.toTypeName())
-                            .addCode(
-                                CodeBlock.builder()
-                                    .apply {
-                                        add("return ${targetType.declShortName}Impl(\n")
-                                        withIndent {
-                                            val propIt = targetType.allProps.iterator()
-                                            while (propIt.hasNext()) {
-                                                addBufRead("buf", propIt.next(), context)
-                                                if(propIt.hasNext()) {
-                                                    add(",\n")
-                                                }
-                                            }
+                                )
+                                .build()
+                        )
+                        // write to buf
+                        addFunction(
+                            FunSpec.builder("writeTo")
+                                .receiver(targetType.toTypeName())
+                                .addParameter("buf", MC_PACKET_BUF_TYPE_NAME)
+                                .addCode(
+                                    CodeBlock.builder().apply {
+                                        targetType.allProps.forEach {
+                                            addBufWriteStmt("buf", it, context)
                                         }
-                                        add("\n)")
                                     }.build()
-                            )
-                            .build()
-                    )
-                    // write to nbt
-                    addFunction(
-                        FunSpec.builder("writeTo")
-                            .receiver(targetType.toTypeName())
-                            .addParameter("compound", NBT_COMPOUND_TYPE_NAME)
-                            .addCode(
-                                CodeBlock.builder().apply {
-                                    targetType.allProps.forEach {
-                                        addNbtWriteStatement("compound", it, context)
-                                    }
-                                }.build()
-                            )
-                            .build()
-                    )
-                    // write to buf
-                    addFunction(
-                        FunSpec.builder("writeTo")
-                            .receiver(targetType.toTypeName())
-                            .addParameter("buf", MC_PACKET_BUF_TYPE_NAME)
-                            .addCode(
-                                CodeBlock.builder().apply {
-                                    targetType.allProps.forEach {
-                                        addBufWriteStmt("buf", it, context)
-                                    }
-                                }.build()
-                            )
-                            .build()
-                    )
+                                )
+                                .build()
+                        )
+                    }
                 }
-            }
-            .build()
+                .build()
 
-        generatedSuperFile.writeTo(codeGenerator, deps)
+            generatedSuperFile.writeTo(codeGenerator, deps)
+        }
+
 
         return symbols.filterNot { it.validate() }.toList()
     }
