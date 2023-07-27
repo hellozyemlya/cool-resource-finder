@@ -5,12 +5,9 @@ import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.*
 import com.squareup.kotlinpoet.CodeBlock
-import com.squareup.kotlinpoet.INT
 import com.squareup.kotlinpoet.ParameterSpec
-import com.squareup.kotlinpoet.STRING
 import com.squareup.kotlinpoet.ksp.toTypeName
 import java.io.OutputStream
-import kotlin.reflect.KType
 
 operator fun OutputStream.plusAssign(str: String) {
     this.write(str.toByteArray())
@@ -303,7 +300,7 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
             addStatement("result[key] = value")
             endControlFlow()
             addStatement("result")
-//            endControlFlow()
+            // next two statements replace endControlFlow(), but without newline symbol
             unindent()
             add("}")
         }
@@ -312,6 +309,109 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
     fun CodeBlock.Builder.nbtReadStmt(propDecl: KSPropertyDeclaration, nbtVar: String) {
         val propType = propDecl.type.resolve()
         nbtReadStmt(propType, propDecl.declShortName, nbtVar)
+    }
+
+
+    private val typeToPacketRead = hashMapOf<KSType, CodeBlock.Builder.(bufVar: String) -> Unit>(
+        IntType to { bufVar ->
+            add("$bufVar.readInt()")
+        },
+        StringType to { bufVar ->
+            add("$bufVar.readString()")
+        },
+        ItemType to { bufVar ->
+            add(
+                "%T.ITEM.get(%T.tryParse($bufVar.readString()))",
+                MC_REGISTRIES_TYPE_NAME,
+                MC_IDENTIFIER_TYPE_NAME
+            )
+        },
+        BlockPosType to { bufVar ->
+            add("$bufVar.readBlockPos()")
+        },
+        IntList to { bufVar ->
+            add("$bufVar.readIntList()")
+        }
+    )
+
+
+    fun CodeBlock.Builder.packetReadStmt(propType: KSType, bufVar: String) {
+        if (typeToPacketRead.containsKey(propType)) {
+            typeToPacketRead[propType]!!(bufVar)
+        } else if (generatedClassTypes.contains(propType)) {
+            add("read${propType.declShortName}From($bufVar)")
+        } else if (propType.declaration == MutableMapDecl) {
+            beginControlFlow("run")
+            val keyType = propType.arguments[0].type!!.resolve()
+            val valueType = propType.arguments[1].type!!.resolve()
+            addStatement(
+                "val result = %T()", resolver.getKSTypeByName(
+                    "java.util.HashMap", keyType, valueType
+                ).toTypeName()
+            )
+            beginControlFlow("repeat($bufVar.readInt())")
+            add("val key = ")
+            packetReadStmt(keyType, bufVar)
+            add("\n")
+            add("val value = ")
+            packetReadStmt(valueType, bufVar)
+            add("\n")
+            addStatement("result[key] = value")
+            endControlFlow()
+            addStatement("result")
+            // next two statements replace endControlFlow(), but without newline symbol
+            unindent()
+            add("}")
+        }
+    }
+
+    fun CodeBlock.Builder.packetReadStmt(propDecl: KSPropertyDeclaration, nbtVar: String) {
+        val propType = propDecl.type.resolve()
+        packetReadStmt(propType, nbtVar)
+    }
+
+
+    private val typeToPacketPut = hashMapOf<KSType, CodeBlock.Builder.(String, String) -> Unit>(
+        IntType to { source, bufVar ->
+            addStatement("$bufVar.writeInt($source)")
+        },
+        StringType to { source, bufVar ->
+            addStatement("$bufVar.writeString($source)")
+        },
+        ItemType to { source, bufVar ->
+            addStatement(
+                "$bufVar.writeString(%T.ITEM.getId($source).toString())",
+                MC_REGISTRIES_TYPE_NAME
+            )
+        },
+        BlockPosType to { source, bufVar ->
+            addStatement("$bufVar.writeBlockPos($source)")
+        },
+        IntList to { source, bufVar ->
+            addStatement("$bufVar.writeVarInt($source.size)")
+            beginControlFlow("for(e in $source)")
+            addStatement("$bufVar.writeVarInt(e)")
+            endControlFlow()
+        }
+    )
+
+    fun CodeBlock.Builder.packetPutStmt(propType: KSType, source: String, bufVar: String) {
+        if (typeToPacketPut.containsKey(propType)) {
+            typeToPacketPut[propType]!!(source, bufVar)
+        } else if (generatedClassTypes.contains(propType)) {
+            addStatement("$source.writeTo($bufVar)")
+        } else if (propType.declaration == MutableMapDecl) {
+            addStatement("$bufVar.writeInt($source.size)")
+            beginControlFlow("for(entry in $source)")
+            packetPutStmt(propType.arguments[0].type!!.resolve(), "entry.key", bufVar)
+            packetPutStmt(propType.arguments[1].type!!.resolve(),"entry.value", bufVar)
+            endControlFlow()
+        }
+    }
+
+    fun CodeBlock.Builder.packetPutStmt(propDecl: KSPropertyDeclaration, propSource: String, nbtVar: String) {
+        val propType = propDecl.type.resolve()
+        packetPutStmt(propType, "${propSource}.${propDecl.declShortName}", nbtVar)
     }
     // endregion
 }

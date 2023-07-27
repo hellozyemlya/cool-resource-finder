@@ -285,7 +285,7 @@ class SerializationProcessor(
                                             withIndent {
                                                 val propIt = targetType.allProps.iterator()
                                                 while (propIt.hasNext()) {
-                                                    addBufRead("buf", propIt.next(), context)
+                                                    packetReadStmt(propIt.next(), "buf")
                                                     if(propIt.hasNext()) {
                                                         add(",\n")
                                                     }
@@ -318,7 +318,7 @@ class SerializationProcessor(
                                 .addCode(
                                     CodeBlock.builder().apply {
                                         targetType.allProps.forEach {
-                                            addBufWriteStmt("buf", it, context)
+                                            packetPutStmt(it, "this", "buf")
                                         }
                                     }.build()
                                 )
