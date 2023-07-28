@@ -8,7 +8,7 @@ import net.minecraft.util.math.BlockPos
 interface CustomStruct {
     val intValue: Int
     val stringValue: String
-    val innerStruct: CustomStruct2
+    val innerStruct: StructOfLists
     val itemField: Item
     val blockPos: BlockPos
     val listExample: MutableList<Int>?
@@ -22,7 +22,18 @@ interface CustomStruct {
 }
 
 @McSerialize
-interface CustomStruct2 {
+interface StructOfLists {
+    val listOfStructs: MutableList<StructOfLists>
+    val listOfBlockPos: MutableList<BlockPos>
+    val listOfInts: MutableList<Int>
+    companion object
+}
+
+@McSerialize
+interface StructOfNullableLists {
+    val listOfStructs: MutableList<StructOfLists>?
+    val listOfBlockPos: MutableList<BlockPos>?
+    val listOfInts: MutableList<Int>?
     companion object
 }
 

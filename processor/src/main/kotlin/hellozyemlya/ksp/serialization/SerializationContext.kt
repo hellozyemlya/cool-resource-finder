@@ -9,6 +9,7 @@ import com.squareup.kotlinpoet.ParameterSpec
 import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.ksp.toTypeName
 import java.io.OutputStream
+import kotlin.reflect.KClass
 
 operator fun OutputStream.plusAssign(str: String) {
     this.write(str.toByteArray())
@@ -332,108 +333,9 @@ class SerializableStructAccessGenerator(private val structs: List<KSType>) : Acc
     }
 }
 
-
-class MapAccessGenerator(
-    private val mapDecl: KSClassDeclaration,
-    private val nbtListType: KSType,
-    private val resolver: Resolver,
-    private val nested: AccessStatements
-) : AccessGenerator {
+abstract class BaseCollectionAccessGenerator(private val nbtListType: KSType) : AccessGenerator {
     override val priority: Int
         get() = Int.MAX_VALUE
-
-    override fun match(sourceType: KSType): Boolean {
-        return sourceType.declaration == mapDecl
-    }
-
-    override fun CodeBlock.Builder.nbtPut(
-        sourceType: KSType,
-        source: String,
-        nbtKey: String,
-        compound: String,
-        hasWrapper: Boolean
-    ) {
-        hasWrapper.doUnless { beginControlFlow("run") }
-        addStatement("val entries = %T()", nbtListType.toTypeName())
-        addStatement("$compound.put(\"$nbtKey\", entries)")
-        beginControlFlow("for(entry in $source)")
-        addStatement("val entryNbt = NbtCompound()")
-        nested.run {
-            nbtPut(sourceType.arguments[0].type!!.resolve(), "entry.key", "key", "entryNbt", true)
-            nbtPut(sourceType.arguments[1].type!!.resolve(), "entry.value", "value", "entryNbt", true)
-        }
-        endControlFlow()
-        hasWrapper.doUnless { endControlFlow() }
-    }
-
-    override fun CodeBlock.Builder.nbtGet(sourceType: KSType, nbtKey: String, compound: String, hasWrapper: Boolean) {
-        val (keyType, valueType) = getPrelude(sourceType, hasWrapper)
-        addStatement("val list = $compound.getList(\"$nbtKey\", %T.COMPOUND_TYPE.toInt())", NBT_ELEMENT_TYPE_NAME)
-        beginControlFlow("for(entry in list.map { it as %T })", NBT_COMPOUND_TYPE_NAME)
-        add("val key = ")
-        nested.run { nbtGet(keyType, "key", "entry", true) }
-        add("\n")
-        add("val value = ")
-        nested.run { nbtGet(valueType, "value", "entry", true) }
-        add("\n")
-        addStatement("result[key] = value")
-        endControlFlow()
-        addStatement("result")
-        hasWrapper.doUnless { endControlFlowNoNl() }
-    }
-
-    override fun CodeBlock.Builder.bufPut(sourceType: KSType, source: String, bufVar: String, hasWrapper: Boolean) {
-        addStatement("$bufVar.writeInt($source.size)")
-        beginControlFlow("for(entry in $source)")
-        nested.run {
-            bufPut(sourceType.arguments[0].type!!.resolve(), "entry.key", bufVar, true)
-            bufPut(sourceType.arguments[1].type!!.resolve(), "entry.value", bufVar, true)
-        }
-        endControlFlow()
-    }
-
-    override fun CodeBlock.Builder.bufGet(sourceType: KSType, bufVar: String, hasWrapper: Boolean) {
-        val (keyType, valueType) = getPrelude(sourceType, hasWrapper)
-        beginControlFlow("repeat($bufVar.readInt())")
-        add("val key = ")
-        nested.run { bufGet(keyType, bufVar, true) }
-        add("\n")
-        add("val value = ")
-        nested.run { bufGet(valueType, bufVar, true) }
-        add("\n")
-        addStatement("result[key] = value")
-        endControlFlow()
-        addStatement("result")
-        hasWrapper.doUnless { endControlFlowNoNl() }
-    }
-
-    private fun CodeBlock.Builder.getPrelude(sourceType: KSType, hasWrapper: Boolean): Pair<KSType, KSType> {
-        hasWrapper.doUnless { beginControlFlow("run") }
-
-        val keyType = sourceType.arguments[0].type!!.resolve()
-        val valueType = sourceType.arguments[1].type!!.resolve()
-        addStatement(
-            "val result = %T()", resolver.getKSTypeByName(
-                "java.util.HashMap", keyType, valueType
-            ).toTypeName()
-        )
-
-        return keyType to valueType
-    }
-}
-
-class GenericListAccessGenerator(
-    private val listDecl: KSClassDeclaration,
-    private val nbtListType: KSType,
-    private val resolver: Resolver,
-    private val nested: AccessStatements
-) : AccessGenerator {
-    override val priority: Int
-        get() = Int.MAX_VALUE
-
-    override fun match(sourceType: KSType): Boolean {
-        return sourceType.declaration == listDecl
-    }
 
     override fun CodeBlock.Builder.nbtPut(
         sourceType: KSType,
@@ -448,63 +350,192 @@ class GenericListAccessGenerator(
         beginControlFlow("for(entry in $source)")
         addStatement("val entryNbt = NbtCompound()")
         addStatement("entries.add(entryNbt)")
-        nested.run {
-            nbtPut(sourceType.arguments[0].type!!.resolve(), "entry", "data", "entryNbt", true)
-        }
+        nbtPutEntry(sourceType.arguments.map { it.type!!.resolve() }, "entryNbt", "entry")
         endControlFlow()
         hasWrapper.doUnless { endControlFlow() }
     }
 
+    protected abstract fun CodeBlock.Builder.nbtPutEntry(argumentsList: List<KSType>, targetNbt: String, entrySource: String)
     override fun CodeBlock.Builder.nbtGet(sourceType: KSType, nbtKey: String, compound: String, hasWrapper: Boolean) {
-        val elementType = getPrelude(sourceType, hasWrapper)
+        val elementTypes = getPrelude(sourceType, hasWrapper)
         addStatement("val list = $compound.getList(\"$nbtKey\", %T.COMPOUND_TYPE.toInt())", NBT_ELEMENT_TYPE_NAME)
         beginControlFlow("for(entry in list.map { it as %T })", NBT_COMPOUND_TYPE_NAME)
-        add("val value = ")
-        nested.run {
-            nbtGet(elementType, "data", "entry", true)
-        }
-        add("\n")
-        addStatement("result.add(value)")
+        nbtGetEntry(elementTypes, "entry")
         endControlFlow()
         addStatement("result")
         hasWrapper.doUnless { endControlFlowNoNl() }
     }
 
+    protected abstract fun CodeBlock.Builder.nbtGetEntry(argumentsList: List<KSType>, sourceNbt: String)
     override fun CodeBlock.Builder.bufPut(sourceType: KSType, source: String, bufVar: String, hasWrapper: Boolean) {
         addStatement("$bufVar.writeInt($source.size)")
         beginControlFlow("for(entry in $source)")
-        nested.run {
-            bufPut(sourceType.arguments[0].type!!.resolve(), "entry", bufVar, true)
-        }
+        bufPutEntry(sourceType.arguments.map { it.type!!.resolve() }, bufVar, "entry")
         endControlFlow()
     }
 
+    protected abstract fun CodeBlock.Builder.bufPutEntry(argumentsList: List<KSType>, bufVar: String, entrySource: String)
+
     override fun CodeBlock.Builder.bufGet(sourceType: KSType, bufVar: String, hasWrapper: Boolean) {
-        val elementType = getPrelude(sourceType, hasWrapper)
+        val elementTypes = getPrelude(sourceType, hasWrapper)
         beginControlFlow("repeat($bufVar.readInt())")
-        add("val value = ")
-        nested.run {
-            bufGet(elementType, bufVar, false)
-        }
-        add("\n")
-        addStatement("result.add(value)")
+        bufGetEntry(elementTypes, bufVar)
         endControlFlow()
         addStatement("result")
         hasWrapper.doUnless { endControlFlowNoNl() }
     }
 
-    private fun CodeBlock.Builder.getPrelude(sourceType: KSType, hasWrapper: Boolean): KSType {
+    protected abstract fun CodeBlock.Builder.bufGetEntry(argumentsList: List<KSType>, bufVar: String)
+
+    private fun CodeBlock.Builder.getPrelude(sourceType: KSType, hasWrapper: Boolean): List<KSType> {
         hasWrapper.doUnless { beginControlFlow("run") }
 
-        val elementType = sourceType.arguments[0].type!!.resolve()
+        val arguments = sourceType.arguments.map { it.type!!.resolve() }
 
-        addStatement(
-            "val result = %T()", resolver.getKSTypeByName(
-                "java.util.ArrayList", elementType
-            ).toTypeName()
+        addStatement("val result = %T()", getCollectionType(arguments).toTypeName())
+
+        return arguments
+    }
+
+    protected abstract fun getCollectionType(arguments: List<KSType>): KSType
+}
+class MapAccessGenerator(
+    private val mapDecl: KSClassDeclaration,
+    private val nbtListType: KSType,
+    private val resolver: Resolver,
+    private val nested: AccessStatements
+) : BaseCollectionAccessGenerator(nbtListType) {
+    override val priority: Int
+        get() = Int.MAX_VALUE
+
+    override fun CodeBlock.Builder.nbtPutEntry(argumentsList: List<KSType>, targetNbt: String, entrySource: String) {
+        nested.run {
+            nbtPut(argumentsList[0], "$entrySource.key", "key", targetNbt, true)
+            nbtPut(argumentsList[1], "$entrySource.value", "value", targetNbt, true)
+        }
+    }
+
+    override fun CodeBlock.Builder.nbtGetEntry(argumentsList: List<KSType>, sourceNbt: String) {
+        add("val key = ")
+        nested.run { nbtGet(argumentsList[0], "key", sourceNbt, false) }
+        add("\n")
+        add("val value = ")
+        nested.run { nbtGet(argumentsList[1], "value", sourceNbt, false) }
+        add("\n")
+        addStatement("result[key] = value")
+    }
+
+    override fun CodeBlock.Builder.bufPutEntry(argumentsList: List<KSType>, bufVar: String, entrySource: String) {
+        nested.run {
+            bufPut(argumentsList[0], "$entrySource.key", bufVar, true)
+            bufPut(argumentsList[1], "$entrySource.value", bufVar, true)
+        }
+    }
+
+    override fun CodeBlock.Builder.bufGetEntry(argumentsList: List<KSType>, bufVar: String) {
+        add("val key = ")
+        nested.run { bufGet(argumentsList[0], bufVar, false) }
+        add("\n")
+        add("val value = ")
+        nested.run { bufGet(argumentsList[1], bufVar, false) }
+        add("\n")
+        addStatement("result[key] = value")
+    }
+
+    override fun getCollectionType(arguments: List<KSType>): KSType {
+        return resolver.getKSTypeByName(
+            "java.util.HashMap", arguments[0], arguments[1]
         )
+    }
 
-        return elementType
+    override fun match(sourceType: KSType): Boolean {
+        return sourceType.declaration == mapDecl
+    }
+}
+class SerializableStructListAccessGenerator(
+    private val listDecl: KSClassDeclaration,
+    private val generatedStructs: List<KSType>,
+    nbtListType: KSType,
+    private val resolver: Resolver
+) : BaseCollectionAccessGenerator(nbtListType) {
+    override val priority: Int
+        get() = 0
+
+    override fun match(sourceType: KSType): Boolean {
+        return sourceType.declaration == listDecl && generatedStructs.contains(sourceType.arguments[0].type!!.resolve())
+    }
+
+    override fun CodeBlock.Builder.nbtPutEntry(argumentsList: List<KSType>, targetNbt: String, entrySource: String) {
+        addStatement("$entrySource.writeTo($targetNbt)")
+    }
+
+    override fun CodeBlock.Builder.nbtGetEntry(argumentsList: List<KSType>, sourceNbt: String) {
+        add("val value = ")
+        add("${argumentsList[0].declaration.simpleName.asString()}.readFrom($sourceNbt)")
+        add("\n")
+        addStatement("result.add(value)")
+    }
+
+    override fun CodeBlock.Builder.bufPutEntry(argumentsList: List<KSType>, bufVar: String, entrySource: String) {
+        addStatement("$entrySource.writeTo($bufVar)")
+    }
+
+    override fun CodeBlock.Builder.bufGetEntry(argumentsList: List<KSType>, bufVar: String) {
+        add("val value = ")
+        add("${argumentsList[0].declaration.simpleName.asString()}.readFrom($bufVar)")
+        add("\n")
+        addStatement("result.add(value)")
+    }
+
+    override fun getCollectionType(arguments: List<KSType>): KSType {
+        return resolver.getKSTypeByName("java.util.ArrayList", arguments[0])
+    }
+}
+class GenericListAccessGenerator(
+    private val listDecl: KSClassDeclaration,
+    nbtListType: KSType,
+    private val resolver: Resolver,
+    private val nested: AccessStatements
+) : BaseCollectionAccessGenerator(nbtListType) {
+    override val priority: Int
+        get() = Int.MAX_VALUE
+
+    override fun match(sourceType: KSType): Boolean {
+        return sourceType.declaration == listDecl
+    }
+
+    override fun CodeBlock.Builder.nbtPutEntry(argumentsList: List<KSType>, targetNbt: String, entrySource: String) {
+        nested.run {
+            nbtPut(argumentsList[0], entrySource, "data", targetNbt, true)
+        }
+    }
+
+    override fun CodeBlock.Builder.nbtGetEntry(argumentsList: List<KSType>, sourceNbt: String) {
+        add("val value = ")
+        nested.run {
+            nbtGet(argumentsList[0], "data", sourceNbt, true)
+        }
+        add("\n")
+        addStatement("result.add(value)")
+    }
+
+    override fun CodeBlock.Builder.bufPutEntry(argumentsList: List<KSType>, bufVar: String, entrySource: String) {
+        nested.run {
+            bufPut(argumentsList[0], entrySource, bufVar, true)
+        }
+    }
+
+    override fun CodeBlock.Builder.bufGetEntry(argumentsList: List<KSType>, bufVar: String) {
+        add("val value = ")
+        nested.run {
+            bufGet(argumentsList[0], bufVar, false)
+        }
+        add("\n")
+        addStatement("result.add(value)")
+    }
+
+    override fun getCollectionType(arguments: List<KSType>): KSType {
+        return resolver.getKSTypeByName("java.util.ArrayList", arguments[0])
     }
 }
 
@@ -623,6 +654,7 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
         SerializableStructAccessGenerator(generatedClassTypes),
         GenericListAccessGenerator(MutableListDecl, NbtListType, resolver, this),
         MapAccessGenerator(MutableMapDecl, NbtListType, resolver, this),
+        SerializableStructListAccessGenerator(MutableListDecl, generatedClassTypes, NbtListType, resolver),
         ItemAccessGenerator(ItemType)
     ).sortedBy { it.priority }
 
