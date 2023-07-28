@@ -163,7 +163,9 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
             }
         }
 
-        if(candidate.declarations.filterIsInstance<KSClassDeclaration>().firstOrNull { it.isCompanionObject } == null) {
+        if (candidate.declarations.filterIsInstance<KSClassDeclaration>()
+                .firstOrNull { it.isCompanionObject } == null
+        ) {
             logger.error("serializable requires companion object to assign creation functions", candidate)
             isValid = false
         }
@@ -369,52 +371,46 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
     }
 
 
-    private val typeToPacketRead = hashMapOf<KSType, CodeBlock.Builder.(bufVar: String) -> Unit>(
-        IntType to { bufVar ->
+    private val typeToPacketRead = listOf<Pair<KSTypePredicate, BufGetFunc>>(
+        { type: KSType -> type.isMarkedNullable } to { sourceType, bufVar, _ ->
+            val nonNullableType = sourceType.makeNotNullable()
+            beginControlFlow("run")
+            beginControlFlow("if($bufVar.readBoolean())")
+            packetReadStmt(nonNullableType, bufVar, true)
+            nextControlFlow("else")
+            addStatement("null")
+            endControlFlow()
+            endControlFlowNoNl()
+        },
+
+        ofType(IntType) to { _, bufVar, _ ->
             add("$bufVar.readInt()")
         },
-        StringType to { bufVar ->
+        ofType(StringType) to { _, bufVar, _ ->
             add("$bufVar.readString()")
         },
-        ItemType to { bufVar ->
+        ofType(ItemType) to { _, bufVar, _ ->
             add(
                 "%T.ITEM.get(%T.tryParse($bufVar.readString()))",
                 MC_REGISTRIES_TYPE_NAME,
                 MC_IDENTIFIER_TYPE_NAME
             )
         },
-        BlockPosType to { bufVar ->
+        ofType(BlockPosType) to { _, bufVar, _ ->
             add("$bufVar.readBlockPos()")
         },
-        IntList to { bufVar ->
+        ofType(IntList) to { _, bufVar, _ ->
             add("$bufVar.readIntList()")
-        }
-    )
+        },
 
+        { type: KSType -> generatedClassTypes.contains(type) } to { sourceType, bufVar, _ ->
+            add("${sourceType.declaration.simpleName.asString()}.readFrom($bufVar)")
+        },
+        { type: KSType -> type.declaration == MutableMapDecl } to { sourceType, bufVar, hasWrapper ->
+            hasWrapper.doUnless { beginControlFlow("run") }
 
-    fun CodeBlock.Builder.packetReadStmt(propType: KSType, bufVar: String) {
-        val isNullable = propType.nullability == Nullability.NULLABLE
-
-        val nonNullableType = if (isNullable) {
-            propType.makeNotNullable()
-        } else {
-            propType
-        }
-
-        if (isNullable) {
-            beginControlFlow("run")
-            beginControlFlow("if($bufVar.readBoolean())")
-        }
-
-        if (typeToPacketRead.containsKey(nonNullableType)) {
-            typeToPacketRead[nonNullableType]!!(bufVar)
-        } else if (generatedClassTypes.contains(nonNullableType)) {
-            add("${nonNullableType.declaration.simpleName.asString()}.readFrom($bufVar)")
-        } else if (nonNullableType.declaration == MutableMapDecl) {
-            if (!isNullable)
-                beginControlFlow("run")
-            val keyType = nonNullableType.arguments[0].type!!.resolve()
-            val valueType = nonNullableType.arguments[1].type!!.resolve()
+            val keyType = sourceType.arguments[0].type!!.resolve()
+            val valueType = sourceType.arguments[1].type!!.resolve()
             addStatement(
                 "val result = %T()", resolver.getKSTypeByName(
                     "java.util.HashMap", keyType, valueType
@@ -422,24 +418,24 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
             )
             beginControlFlow("repeat($bufVar.readInt())")
             add("val key = ")
-            packetReadStmt(keyType, bufVar)
+            packetReadStmt(keyType, bufVar, true)
             add("\n")
             add("val value = ")
-            packetReadStmt(valueType, bufVar)
+            packetReadStmt(valueType, bufVar, true)
             add("\n")
             addStatement("result[key] = value")
             endControlFlow()
             addStatement("result")
-            if (!isNullable) {
-                endControlFlowNoNl()
-            }
+            hasWrapper.doUnless { endControlFlowNoNl() }
         }
-        if (isNullable) {
-            nextControlFlow("else")
-            addStatement("null")
-            endControlFlow()
-            endControlFlowNoNl()
-        }
+    )
+
+
+    fun CodeBlock.Builder.packetReadStmt(targetType: KSType, bufVar: String, hasWrapper: Boolean = false) {
+        val generator = typeToPacketRead
+            .first { it.first(targetType) }
+            .second
+        this.generator(targetType, bufVar, hasWrapper)
     }
 
     fun CodeBlock.Builder.packetReadStmt(propDecl: KSPropertyDeclaration, nbtVar: String) {
@@ -448,62 +444,57 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
     }
 
 
-    private val typeToPacketPut = hashMapOf<KSType, CodeBlock.Builder.(String, String) -> Unit>(
-        IntType to { source, bufVar ->
+    private val typeToPacketPut = listOf<Pair<KSTypePredicate, BufPutFunc>>(
+        { type: KSType -> type.isMarkedNullable } to { sourceType, source, bufVar, _ ->
+            val nonNullableType = sourceType.makeNotNullable()
+            addStatement("$bufVar.writeBoolean($source != null)")
+            beginControlFlow("$source?.let")
+            packetPutStmt(nonNullableType, "it", bufVar, true)
+            endControlFlow()
+        },
+        ofType(IntType) to { _, source, bufVar, _ ->
             addStatement("$bufVar.writeInt($source)")
         },
-        StringType to { source, bufVar ->
+        ofType(StringType) to { _, source, bufVar, _ ->
             addStatement("$bufVar.writeString($source)")
         },
-        ItemType to { source, bufVar ->
+        ofType(ItemType) to { _, source, bufVar, _ ->
             addStatement(
                 "$bufVar.writeString(%T.ITEM.getId($source).toString())",
                 MC_REGISTRIES_TYPE_NAME
             )
         },
-        BlockPosType to { source, bufVar ->
+        ofType(BlockPosType) to { _, source, bufVar, _ ->
             addStatement("$bufVar.writeBlockPos($source)")
         },
-        IntList to { source, bufVar ->
+        ofType(IntList) to { _, source, bufVar, _ ->
             addStatement("$bufVar.writeVarInt($source.size)")
             beginControlFlow("for(e in $source)")
             addStatement("$bufVar.writeVarInt(e)")
             endControlFlow()
-        }
+        },
+        { type: KSType -> generatedClassTypes.contains(type) } to { sourceType, source, bufVar, _ ->
+            addStatement("$source.writeTo($bufVar)")
+        },
+        { type: KSType -> type.declaration == MutableMapDecl } to { sourceType, source, bufVar, _ ->
+            addStatement("$bufVar.writeInt($source.size)")
+            beginControlFlow("for(entry in $source)")
+            packetPutStmt(sourceType.arguments[0].type!!.resolve(), "entry.key", bufVar)
+            packetPutStmt(sourceType.arguments[1].type!!.resolve(), "entry.value", bufVar)
+            endControlFlow()
+        },
     )
 
-    fun CodeBlock.Builder.packetPutStmt(propType: KSType, source: String, bufVar: String) {
-        val isNullable = propType.nullability == Nullability.NULLABLE
-
-        val nonNullableType = if (isNullable) {
-            propType.makeNotNullable()
-        } else {
-            propType
-        }
-
-        val nonNullableSource = if (isNullable) {
-            "it"
-        } else {
-            source
-        }
-        if (isNullable) {
-            addStatement("$bufVar.writeBoolean($source != null)")
-            beginControlFlow("$source?.let")
-        }
-        if (typeToPacketPut.containsKey(nonNullableType)) {
-            typeToPacketPut[nonNullableType]!!(nonNullableSource, bufVar)
-        } else if (generatedClassTypes.contains(nonNullableType)) {
-            addStatement("$nonNullableSource.writeTo($bufVar)")
-        } else if (nonNullableType.declaration == MutableMapDecl) {
-            addStatement("$bufVar.writeInt($nonNullableSource.size)")
-            beginControlFlow("for(entry in $nonNullableSource)")
-            packetPutStmt(nonNullableType.arguments[0].type!!.resolve(), "entry.key", bufVar)
-            packetPutStmt(nonNullableType.arguments[1].type!!.resolve(), "entry.value", bufVar)
-            endControlFlow()
-        }
-        if (isNullable) {
-            endControlFlow()
-        }
+    fun CodeBlock.Builder.packetPutStmt(
+        sourceType: KSType,
+        source: String,
+        bufVar: String,
+        hasWrapper: Boolean = false
+    ) {
+        val generator = typeToPacketPut
+            .first { it.first(sourceType) }
+            .second
+        this.generator(sourceType, source, bufVar, hasWrapper)
     }
 
     fun CodeBlock.Builder.packetPutStmt(propDecl: KSPropertyDeclaration, propSource: String, nbtVar: String) {
@@ -516,6 +507,8 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
 typealias KSTypePredicate = (type: KSType) -> Boolean
 typealias NbtPutFunc = CodeBlock.Builder.(sourceType: KSType, source: String, nbtKey: String, compound: String, hasWrapper: Boolean) -> Unit
 typealias NbtGetFunc = CodeBlock.Builder.(sourceType: KSType, nbtKey: String, compound: String, hasWrapper: Boolean) -> Unit
+typealias BufGetFunc = CodeBlock.Builder.(sourceType: KSType, bufVar: String, hasWrapper: Boolean) -> Unit
+typealias BufPutFunc = CodeBlock.Builder.(sourceType: KSType, source: String, bufVar: String, hasWrapper: Boolean) -> Unit
 
 fun ofType(type: KSType): KSTypePredicate {
     return { it == type }
