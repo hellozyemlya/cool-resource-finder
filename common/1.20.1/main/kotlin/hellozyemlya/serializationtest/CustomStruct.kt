@@ -1,7 +1,6 @@
 package hellozyemlya.serializationtest
 
 import hellozyemlya.serialization.annotations.McSerialize
-import hellozyemlya.serialization.generated.create
 import net.minecraft.item.Item
 import net.minecraft.util.math.BlockPos
 
@@ -16,6 +15,9 @@ interface CustomStruct {
     val mapField: MutableMap<Item, Int>?
     val recursiveMapField: MutableMap<Item, CustomStruct>
     val nullableValue: Int?
+    val listOfItems: MutableList<Item>
+    val listOfStructs: MutableList<CustomStruct>
+    val listOfBlockPos: MutableList<BlockPos>
     companion object HelloWorld
 }
 

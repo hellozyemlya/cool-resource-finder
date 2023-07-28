@@ -51,13 +51,8 @@ class SerializationProcessor(
             fileName = "GeneratedSerialization"
         )
 
-        symbols.forEach {
-            context.addTargetType(it.asType(emptyList()))
-        }
-
         // Generating package statement.
         file += "package hellozyemlya.serialization.generated\n"
-        context.printInfo(file)
 
         context.apply {
             val generatedSuperFile = FileSpec

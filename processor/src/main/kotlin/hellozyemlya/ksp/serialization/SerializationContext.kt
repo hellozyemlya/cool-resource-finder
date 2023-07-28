@@ -45,29 +45,6 @@ fun Resolver.getKSTypeByName(name: String): KSType {
 }
 
 
-inline fun <T> KSType.unwrapNull(
-    nonNullArg: T,
-    nullArg: T,
-    block: (nonNullable: KSType, wasNullable: Boolean, arg: T) -> Unit
-) {
-    val isNullable = this.nullability == Nullability.NULLABLE
-
-
-    val nonNullableType = if (isNullable) {
-        this.makeNotNullable()
-    } else {
-        this
-    }
-
-    val arg = if (isNullable) {
-        nullArg
-    } else {
-        nonNullArg
-    }
-
-    block(nonNullableType, isNullable, arg)
-}
-
 fun Boolean.doIf(block: () -> Unit) {
     if (this) {
         block()
@@ -92,7 +69,446 @@ public fun CodeBlock.Builder.endControlFlowNoNl(): CodeBlock.Builder = apply {
     add("}")
 }
 
-class SerializationContext(private val resolver: Resolver, private val logger: KSPLogger) {
+interface AccessStatements {
+    fun CodeBlock.Builder.nbtPut(
+        sourceType: KSType,
+        source: String,
+        nbtKey: String,
+        compound: String,
+        hasWrapper: Boolean
+    )
+
+    fun CodeBlock.Builder.nbtGet(sourceType: KSType, nbtKey: String, compound: String, hasWrapper: Boolean)
+    fun CodeBlock.Builder.bufPut(sourceType: KSType, source: String, bufVar: String, hasWrapper: Boolean)
+    fun CodeBlock.Builder.bufGet(sourceType: KSType, bufVar: String, hasWrapper: Boolean)
+}
+
+interface AccessGenerator : AccessStatements {
+    val priority: Int
+    fun match(sourceType: KSType): Boolean
+
+}
+
+abstract class SimpleAccessGenerator(private val compareType: KSType) : AccessGenerator {
+    override val priority: Int
+        get() = 0
+
+    override fun match(sourceType: KSType): Boolean {
+        return sourceType == compareType
+    }
+}
+
+class IntAccessGenerator(intType: KSType) : SimpleAccessGenerator(intType) {
+    override fun CodeBlock.Builder.nbtPut(
+        sourceType: KSType,
+        source: String,
+        nbtKey: String,
+        compound: String,
+        hasWrapper: Boolean
+    ) {
+        addStatement("$compound.putInt(%S, %L)", nbtKey, source)
+    }
+
+    override fun CodeBlock.Builder.nbtGet(sourceType: KSType, nbtKey: String, compound: String, hasWrapper: Boolean) {
+        add("$compound.getInt(\"$nbtKey\")")
+    }
+
+    override fun CodeBlock.Builder.bufPut(sourceType: KSType, source: String, bufVar: String, hasWrapper: Boolean) {
+        addStatement("$bufVar.writeInt($source)")
+    }
+
+    override fun CodeBlock.Builder.bufGet(sourceType: KSType, bufVar: String, hasWrapper: Boolean) {
+        add("$bufVar.readInt()")
+    }
+}
+
+class StringAccessGenerator(intType: KSType) : SimpleAccessGenerator(intType) {
+    override fun CodeBlock.Builder.nbtPut(
+        sourceType: KSType,
+        source: String,
+        nbtKey: String,
+        compound: String,
+        hasWrapper: Boolean
+    ) {
+        addStatement("$compound.putString(%S, %L)", nbtKey, source)
+    }
+
+    override fun CodeBlock.Builder.nbtGet(sourceType: KSType, nbtKey: String, compound: String, hasWrapper: Boolean) {
+        add("$compound.getString(\"$nbtKey\")")
+    }
+
+    override fun CodeBlock.Builder.bufPut(sourceType: KSType, source: String, bufVar: String, hasWrapper: Boolean) {
+        addStatement("$bufVar.writeString($source)")
+    }
+
+    override fun CodeBlock.Builder.bufGet(sourceType: KSType, bufVar: String, hasWrapper: Boolean) {
+        add("$bufVar.readString()")
+    }
+}
+
+
+class ItemAccessGenerator(itemType: KSType) : SimpleAccessGenerator(itemType) {
+    override fun CodeBlock.Builder.nbtPut(
+        sourceType: KSType,
+        source: String,
+        nbtKey: String,
+        compound: String,
+        hasWrapper: Boolean
+    ) {
+        addStatement(
+            "$compound.putString(\"$nbtKey\", %T.ITEM.getId($source).toString())",
+            MC_REGISTRIES_TYPE_NAME
+        )
+    }
+
+    override fun CodeBlock.Builder.nbtGet(sourceType: KSType, nbtKey: String, compound: String, hasWrapper: Boolean) {
+        add(
+            "%T.ITEM.get(%T.tryParse($compound.getString(\"$nbtKey\")))",
+            MC_REGISTRIES_TYPE_NAME,
+            MC_IDENTIFIER_TYPE_NAME
+        )
+    }
+
+    override fun CodeBlock.Builder.bufPut(sourceType: KSType, source: String, bufVar: String, hasWrapper: Boolean) {
+        addStatement(
+            "$bufVar.writeString(%T.ITEM.getId($source).toString())",
+            MC_REGISTRIES_TYPE_NAME
+        )
+    }
+
+    override fun CodeBlock.Builder.bufGet(sourceType: KSType, bufVar: String, hasWrapper: Boolean) {
+        add(
+            "%T.ITEM.get(%T.tryParse($bufVar.readString()))",
+            MC_REGISTRIES_TYPE_NAME,
+            MC_IDENTIFIER_TYPE_NAME
+        )
+    }
+}
+
+class BlockPosAccessGenerator(blockPosType: KSType) : SimpleAccessGenerator(blockPosType) {
+    override fun CodeBlock.Builder.nbtPut(
+        sourceType: KSType,
+        source: String,
+        nbtKey: String,
+        compound: String,
+        hasWrapper: Boolean
+    ) {
+        addStatement("$compound.putIntArray(\"$nbtKey\", intArrayOf($source.x, $source.y, $source.z))")
+    }
+
+    override fun CodeBlock.Builder.nbtGet(sourceType: KSType, nbtKey: String, compound: String, hasWrapper: Boolean) {
+        add("$compound.getIntArray(\"$nbtKey\").run { BlockPos(this[0], this[1], this[2]) }")
+    }
+
+    override fun CodeBlock.Builder.bufPut(sourceType: KSType, source: String, bufVar: String, hasWrapper: Boolean) {
+        addStatement("$bufVar.writeBlockPos($source)")
+    }
+
+    override fun CodeBlock.Builder.bufGet(sourceType: KSType, bufVar: String, hasWrapper: Boolean) {
+        add("$bufVar.readBlockPos()")
+    }
+}
+
+class IntListAccessGenerator(intListType: KSType) : SimpleAccessGenerator(intListType) {
+    override fun CodeBlock.Builder.nbtPut(
+        sourceType: KSType,
+        source: String,
+        nbtKey: String,
+        compound: String,
+        hasWrapper: Boolean
+    ) {
+        addStatement("$compound.putIntArray(\"$nbtKey\", $source)")
+    }
+
+    override fun CodeBlock.Builder.nbtGet(sourceType: KSType, nbtKey: String, compound: String, hasWrapper: Boolean) {
+        add("$compound.getIntArray(\"$nbtKey\").toMutableList()")
+    }
+
+    override fun CodeBlock.Builder.bufPut(sourceType: KSType, source: String, bufVar: String, hasWrapper: Boolean) {
+        addStatement("$bufVar.writeVarInt($source.size)")
+        beginControlFlow("for(e in $source)")
+        addStatement("$bufVar.writeVarInt(e)")
+        endControlFlow()
+    }
+
+    override fun CodeBlock.Builder.bufGet(sourceType: KSType, bufVar: String, hasWrapper: Boolean) {
+        add("$bufVar.readIntList()")
+    }
+}
+
+class NullWrapAccessGenerator(private val nested: AccessStatements) : AccessGenerator {
+    override val priority: Int
+        get() = Int.MIN_VALUE
+
+    override fun match(sourceType: KSType): Boolean {
+        return sourceType.isMarkedNullable
+    }
+
+    override fun CodeBlock.Builder.nbtPut(
+        sourceType: KSType,
+        source: String,
+        nbtKey: String,
+        compound: String,
+        hasWrapper: Boolean
+    ) {
+        val nonNullableType = sourceType.makeNotNullable()
+        beginControlFlow("$source?.let { nonNull ->")
+        nested.run {
+            nbtPut(nonNullableType, "nonNull", nbtKey, compound, true)
+        }
+        endControlFlow()
+    }
+
+    override fun CodeBlock.Builder.nbtGet(sourceType: KSType, nbtKey: String, compound: String, hasWrapper: Boolean) {
+        val nonNullableType = sourceType.makeNotNullable()
+        beginControlFlow("run")
+        beginControlFlow("if($compound.contains(\"$nbtKey\"))")
+        nested.run {
+            nbtGet(nonNullableType, nbtKey, compound, true)
+        }
+        nextControlFlow("else")
+        addStatement("null")
+        endControlFlow()
+        endControlFlowNoNl()
+    }
+
+    override fun CodeBlock.Builder.bufPut(sourceType: KSType, source: String, bufVar: String, hasWrapper: Boolean) {
+        val nonNullableType = sourceType.makeNotNullable()
+        addStatement("$bufVar.writeBoolean($source != null)")
+        beginControlFlow("$source?.let")
+        nested.run {
+            bufPut(nonNullableType, "it", bufVar, true)
+        }
+        endControlFlow()
+    }
+
+    override fun CodeBlock.Builder.bufGet(sourceType: KSType, bufVar: String, hasWrapper: Boolean) {
+        val nonNullableType = sourceType.makeNotNullable()
+        beginControlFlow("run")
+        beginControlFlow("if($bufVar.readBoolean())")
+        nested.run {
+            bufGet(nonNullableType, bufVar, true)
+        }
+        nextControlFlow("else")
+        addStatement("null")
+        endControlFlow()
+        endControlFlowNoNl()
+    }
+}
+
+
+class SerializableStructAccessGenerator(private val structs: List<KSType>) : AccessGenerator {
+    override val priority: Int
+        get() = Int.MAX_VALUE
+
+    override fun match(sourceType: KSType): Boolean {
+        return structs.contains(sourceType)
+    }
+
+    override fun CodeBlock.Builder.nbtPut(
+        sourceType: KSType,
+        source: String,
+        nbtKey: String,
+        compound: String,
+        hasWrapper: Boolean
+    ) {
+        hasWrapper.doUnless { beginControlFlow("run") }
+        addStatement("val childCompound = NbtCompound()")
+        addStatement("$compound.put(\"$nbtKey\", childCompound)")
+        addStatement("$source.writeTo(childCompound)")
+        hasWrapper.doUnless { endControlFlow() }
+    }
+
+    override fun CodeBlock.Builder.nbtGet(sourceType: KSType, nbtKey: String, compound: String, hasWrapper: Boolean) {
+        add("${sourceType.declaration.simpleName.asString()}.readFrom($compound.getCompound(\"$nbtKey\"))")
+    }
+
+    override fun CodeBlock.Builder.bufPut(sourceType: KSType, source: String, bufVar: String, hasWrapper: Boolean) {
+        addStatement("$source.writeTo($bufVar)")
+    }
+
+    override fun CodeBlock.Builder.bufGet(sourceType: KSType, bufVar: String, hasWrapper: Boolean) {
+        add("${sourceType.declaration.simpleName.asString()}.readFrom($bufVar)")
+    }
+}
+
+
+class MapAccessGenerator(
+    private val mapDecl: KSClassDeclaration,
+    private val nbtListType: KSType,
+    private val resolver: Resolver,
+    private val nested: AccessStatements
+) : AccessGenerator {
+    override val priority: Int
+        get() = Int.MAX_VALUE
+
+    override fun match(sourceType: KSType): Boolean {
+        return sourceType.declaration == mapDecl
+    }
+
+    override fun CodeBlock.Builder.nbtPut(
+        sourceType: KSType,
+        source: String,
+        nbtKey: String,
+        compound: String,
+        hasWrapper: Boolean
+    ) {
+        hasWrapper.doUnless { beginControlFlow("run") }
+        addStatement("val entries = %T()", nbtListType.toTypeName())
+        addStatement("$compound.put(\"$nbtKey\", entries)")
+        beginControlFlow("for(entry in $source)")
+        addStatement("val entryNbt = NbtCompound()")
+        nested.run {
+            nbtPut(sourceType.arguments[0].type!!.resolve(), "entry.key", "key", "entryNbt", true)
+            nbtPut(sourceType.arguments[1].type!!.resolve(), "entry.value", "value", "entryNbt", true)
+        }
+        endControlFlow()
+        hasWrapper.doUnless { endControlFlow() }
+    }
+
+    override fun CodeBlock.Builder.nbtGet(sourceType: KSType, nbtKey: String, compound: String, hasWrapper: Boolean) {
+        val (keyType, valueType) = getPrelude(sourceType, hasWrapper)
+        addStatement("val list = $compound.getList(\"$nbtKey\", %T.COMPOUND_TYPE.toInt())", NBT_ELEMENT_TYPE_NAME)
+        beginControlFlow("for(entry in list.map { it as %T })", NBT_COMPOUND_TYPE_NAME)
+        add("val key = ")
+        nested.run { nbtGet(keyType, "key", "entry", true) }
+        add("\n")
+        add("val value = ")
+        nested.run { nbtGet(valueType, "value", "entry", true) }
+        add("\n")
+        addStatement("result[key] = value")
+        endControlFlow()
+        addStatement("result")
+        hasWrapper.doUnless { endControlFlowNoNl() }
+    }
+
+    override fun CodeBlock.Builder.bufPut(sourceType: KSType, source: String, bufVar: String, hasWrapper: Boolean) {
+        addStatement("$bufVar.writeInt($source.size)")
+        beginControlFlow("for(entry in $source)")
+        nested.run {
+            bufPut(sourceType.arguments[0].type!!.resolve(), "entry.key", bufVar, true)
+            bufPut(sourceType.arguments[1].type!!.resolve(), "entry.value", bufVar, true)
+        }
+        endControlFlow()
+    }
+
+    override fun CodeBlock.Builder.bufGet(sourceType: KSType, bufVar: String, hasWrapper: Boolean) {
+        val (keyType, valueType) = getPrelude(sourceType, hasWrapper)
+        beginControlFlow("repeat($bufVar.readInt())")
+        add("val key = ")
+        nested.run { bufGet(keyType, bufVar, true) }
+        add("\n")
+        add("val value = ")
+        nested.run { bufGet(valueType, bufVar, true) }
+        add("\n")
+        addStatement("result[key] = value")
+        endControlFlow()
+        addStatement("result")
+        hasWrapper.doUnless { endControlFlowNoNl() }
+    }
+
+    private fun CodeBlock.Builder.getPrelude(sourceType: KSType, hasWrapper: Boolean): Pair<KSType, KSType> {
+        hasWrapper.doUnless { beginControlFlow("run") }
+
+        val keyType = sourceType.arguments[0].type!!.resolve()
+        val valueType = sourceType.arguments[1].type!!.resolve()
+        addStatement(
+            "val result = %T()", resolver.getKSTypeByName(
+                "java.util.HashMap", keyType, valueType
+            ).toTypeName()
+        )
+
+        return keyType to valueType
+    }
+}
+
+class GenericListAccessGenerator(
+    private val listDecl: KSClassDeclaration,
+    private val nbtListType: KSType,
+    private val resolver: Resolver,
+    private val nested: AccessStatements
+) : AccessGenerator {
+    override val priority: Int
+        get() = Int.MAX_VALUE
+
+    override fun match(sourceType: KSType): Boolean {
+        return sourceType.declaration == listDecl
+    }
+
+    override fun CodeBlock.Builder.nbtPut(
+        sourceType: KSType,
+        source: String,
+        nbtKey: String,
+        compound: String,
+        hasWrapper: Boolean
+    ) {
+        hasWrapper.doUnless { beginControlFlow("run") }
+        addStatement("val entries = %T()", nbtListType.toTypeName())
+        addStatement("$compound.put(\"$nbtKey\", entries)")
+        beginControlFlow("for(entry in $source)")
+        addStatement("val entryNbt = NbtCompound()")
+        addStatement("entries.add(entryNbt)")
+        nested.run {
+            nbtPut(sourceType.arguments[0].type!!.resolve(), "entry", "data", "entryNbt", true)
+        }
+        endControlFlow()
+        hasWrapper.doUnless { endControlFlow() }
+    }
+
+    override fun CodeBlock.Builder.nbtGet(sourceType: KSType, nbtKey: String, compound: String, hasWrapper: Boolean) {
+        val elementType = getPrelude(sourceType, hasWrapper)
+        addStatement("val list = $compound.getList(\"$nbtKey\", %T.COMPOUND_TYPE.toInt())", NBT_ELEMENT_TYPE_NAME)
+        beginControlFlow("for(entry in list.map { it as %T })", NBT_COMPOUND_TYPE_NAME)
+        add("val value = ")
+        nested.run {
+            nbtGet(elementType, "data", "entry", true)
+        }
+        add("\n")
+        addStatement("result.add(value)")
+        endControlFlow()
+        addStatement("result")
+        hasWrapper.doUnless { endControlFlowNoNl() }
+    }
+
+    override fun CodeBlock.Builder.bufPut(sourceType: KSType, source: String, bufVar: String, hasWrapper: Boolean) {
+        addStatement("$bufVar.writeInt($source.size)")
+        beginControlFlow("for(entry in $source)")
+        nested.run {
+            bufPut(sourceType.arguments[0].type!!.resolve(), "entry", bufVar, true)
+        }
+        endControlFlow()
+    }
+
+    override fun CodeBlock.Builder.bufGet(sourceType: KSType, bufVar: String, hasWrapper: Boolean) {
+        val elementType = getPrelude(sourceType, hasWrapper)
+        beginControlFlow("repeat($bufVar.readInt())")
+        add("val value = ")
+        nested.run {
+            bufGet(elementType, bufVar, false)
+        }
+        add("\n")
+        addStatement("result.add(value)")
+        endControlFlow()
+        addStatement("result")
+        hasWrapper.doUnless { endControlFlowNoNl() }
+    }
+
+    private fun CodeBlock.Builder.getPrelude(sourceType: KSType, hasWrapper: Boolean): KSType {
+        hasWrapper.doUnless { beginControlFlow("run") }
+
+        val elementType = sourceType.arguments[0].type!!.resolve()
+
+        addStatement(
+            "val result = %T()", resolver.getKSTypeByName(
+                "java.util.ArrayList", elementType
+            ).toTypeName()
+        )
+
+        return elementType
+    }
+}
+
+class SerializationContext(private val resolver: Resolver, private val logger: KSPLogger) : AccessStatements {
     private val MutableListDecl = resolver.getClassDeclarationByName("kotlin.collections.MutableList")!!
     private val MutableMapDecl = resolver.getClassDeclarationByName("kotlin.collections.MutableMap")!!
     private val AnyType = resolver.getKSTypeByName("kotlin.Any")
@@ -100,8 +516,8 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
     private val StringType = resolver.getKSTypeByName("kotlin.String")
     private val ItemType = resolver.getKSTypeByName("net.minecraft.item.Item")
     private val BlockPosType = resolver.getKSTypeByName("net.minecraft.util.math.BlockPos")
-    private val IntList = resolver.getKSTypeByName("kotlin.collections.MutableList", IntType)
-    private val StringList = resolver.getKSTypeByName("kotlin.collections.MutableList", StringType)
+    private val IntListType = resolver.getKSTypeByName("kotlin.collections.MutableList", IntType)
+    private val StringListType = resolver.getKSTypeByName("kotlin.collections.MutableList", StringType)
     private val NbtListType = resolver.getKSTypeByName("net.minecraft.nbt.NbtList")
 
     public val generatedClassDecls: MutableList<KSClassDeclaration> = ArrayList()
@@ -190,326 +606,77 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
 
     private fun isBuiltInType(type: KSType): Boolean {
         return when (type) {
-            IntType, StringType, ItemType, BlockPosType, IntList, StringList -> true
+            IntType, StringType, ItemType, BlockPosType, IntListType, StringListType -> true
             else -> false
         }
-    }
-
-    private val supportedTypes: MutableSet<KSType> = HashSet()
-    public val targetTypes: MutableList<KSType> = ArrayList()
-
-    init {
-        supportedTypes.add(resolver.getClassDeclarationByName("kotlin.Int")!!.asType(emptyList()))
-        supportedTypes.add(resolver.getClassDeclarationByName("kotlin.collections.MutableList")!!.asType(emptyList()))
-        supportedTypes.add(resolver.getClassDeclarationByName("net.minecraft.nbt.NbtCompound")!!.asType(emptyList()))
-    }
-
-    fun addTargetType(type: KSType) {
-        supportedTypes.add(type)
-        targetTypes.add(type)
-    }
-
-
-    fun printInfo(outputStream: OutputStream) {
     }
 
 
     // region Statement Helper
 
-    private val codeGenNbtPutMap: List<Pair<KSTypePredicate, NbtPutFunc>> = listOf(
-        // wrapping nullable must match first
-        { type: KSType -> type.isMarkedNullable } to { sourceType, source, nbtKey, compound, _ ->
-            val nonNullableType = sourceType.makeNotNullable()
-            beginControlFlow("$source?.let { nonNull ->")
-            nbtPutStmt(nonNullableType, "nonNull", nbtKey, compound, true)
-            endControlFlow()
-        },
+    private val accessGenerators = listOf(
+        NullWrapAccessGenerator(this),
+        IntAccessGenerator(IntType),
+        StringAccessGenerator(StringType),
+        BlockPosAccessGenerator(BlockPosType),
+        IntListAccessGenerator(IntListType),
+        SerializableStructAccessGenerator(generatedClassTypes),
+        GenericListAccessGenerator(MutableListDecl, NbtListType, resolver, this),
+        MapAccessGenerator(MutableMapDecl, NbtListType, resolver, this),
+        ItemAccessGenerator(ItemType)
+    ).sortedBy { it.priority }
 
-        ofType(IntType) to { _, source, nbtKey, compound, _ ->
-            addStatement("$compound.putInt(%S, %L)", nbtKey, source)
-        },
-
-        ofType(StringType) to { _, source, nbtKey, compound, _ ->
-            addStatement("$compound.putString(\"$nbtKey\", $source)")
-        },
-        ofType(ItemType) to { _, source, nbtKey, compound, _ ->
-            addStatement(
-                "$compound.putString(\"$nbtKey\", %T.ITEM.getId($source).toString())",
-                MC_REGISTRIES_TYPE_NAME
-            )
-        },
-
-        ofType(BlockPosType) to { _, source, nbtKey, compound, _ ->
-            addStatement("$compound.putIntArray(\"$nbtKey\", intArrayOf($source.x, $source.y, $source.z))")
-        },
-
-        ofType(IntList) to { _, source, nbtKey, compound, _ ->
-            addStatement("$compound.putIntArray(\"$nbtKey\", $source)")
-        },
-
-        // our custom structures
-        { type: KSType -> generatedClassTypes.contains(type) } to { _, source, nbtKey, compound, hasWrapper ->
-            hasWrapper.doUnless { beginControlFlow("run") }
-            addStatement("val childCompound = NbtCompound()")
-            addStatement("$compound.put(\"$nbtKey\", childCompound)")
-            addStatement("$source.writeTo(childCompound)")
-            hasWrapper.doUnless { endControlFlow() }
-        },
-        // map
-        { type: KSType -> type.declaration == MutableMapDecl } to { sourceType, source, nbtKey, compound, hasWrapper ->
-            hasWrapper.doUnless { beginControlFlow("run") }
-            addStatement("val entries = %T()", NbtListType.toTypeName())
-            addStatement("$compound.put(\"$nbtKey\", entries)")
-            beginControlFlow("for(entry in $source)")
-            addStatement("val entryNbt = NbtCompound()")
-            nbtPutStmt(sourceType.arguments[0].type!!.resolve(), "entry.key", "key", "entryNbt", true)
-            nbtPutStmt(sourceType.arguments[1].type!!.resolve(), "entry.value", "value", "entryNbt", true)
-            endControlFlow()
-            hasWrapper.doUnless { endControlFlow() }
-        }
-    )
-
-    private fun CodeBlock.Builder.nbtPutStmt(
-        sourceType: KSType,
-        source: String,
-        nbtKey: String,
-        compound: String,
-        hasWrapper: Boolean = false
-    ) {
-        val generator = codeGenNbtPutMap
-            .first { it.first(sourceType) }
-            .second
-        this.generator(sourceType, source, nbtKey, compound, hasWrapper)
-    }
 
     fun CodeBlock.Builder.nbtWriteProperty(propDecl: KSPropertyDeclaration, thisVar: String, nbtVar: String) {
         val propType = propDecl.type.resolve()
-        nbtPutStmt(propType, "${thisVar}.${propDecl.declShortName}", propDecl.declShortName, nbtVar)
+        nbtPut(propType, "${thisVar}.${propDecl.declShortName}", propDecl.declShortName, nbtVar, false)
     }
 
-    private val codeGenNbtGetMap: List<Pair<KSTypePredicate, NbtGetFunc>> = listOf(
-        // wrapping nullable must match first
-        { type: KSType -> type.isMarkedNullable } to { sourceType, nbtKey, compound, _ ->
-            val nonNullableType = sourceType.makeNotNullable()
-            beginControlFlow("run")
-            beginControlFlow("if($compound.contains(\"$nbtKey\"))")
-            nbtReadStmt(nonNullableType, nbtKey, compound, true)
-            nextControlFlow("else")
-            addStatement("null")
-            endControlFlow()
-            endControlFlowNoNl()
-        },
-
-        ofType(IntType) to { _, nbtKey, compound, _ ->
-            add("$compound.getInt(\"$nbtKey\")")
-        },
-
-        ofType(StringType) to { _, nbtKey, compound, _ ->
-            add("$compound.getString(\"$nbtKey\")")
-        },
-        ofType(ItemType) to { _, nbtKey, compound, _ ->
-            add(
-                "%T.ITEM.get(%T.tryParse($compound.getString(\"$nbtKey\")))",
-                MC_REGISTRIES_TYPE_NAME,
-                MC_IDENTIFIER_TYPE_NAME
-            )
-        },
-
-        ofType(BlockPosType) to { _, nbtKey, compound, _ ->
-            add("$compound.getIntArray(\"$nbtKey\").run { BlockPos(this[0], this[1], this[2]) }")
-        },
-
-        ofType(IntList) to { _, nbtKey, compound, _ ->
-            add("$compound.getIntArray(\"$nbtKey\").toMutableList()")
-        },
-
-        // our custom structures
-        { type: KSType -> generatedClassTypes.contains(type) } to { sourceType, nbtKey, compound, _ ->
-            add("${sourceType.declaration.simpleName.asString()}.readFrom($compound.getCompound(\"$nbtKey\"))")
-        },
-        // map
-        { type: KSType -> type.declaration == MutableMapDecl } to { sourceType, nbtKey, compound, hasWrapper ->
-            hasWrapper.doUnless { beginControlFlow("run") }
-
-            val keyType = sourceType.arguments[0].type!!.resolve()
-            val valueType = sourceType.arguments[1].type!!.resolve()
-            addStatement(
-                "val result = %T()", resolver.getKSTypeByName(
-                    "java.util.HashMap", keyType, valueType
-                ).toTypeName()
-            )
-            addStatement("val list = $compound.getList(\"$nbtKey\", %T.COMPOUND_TYPE.toInt())", NBT_ELEMENT_TYPE_NAME)
-            beginControlFlow("for(entry in list.map { it as %T })", NBT_COMPOUND_TYPE_NAME)
-            add("val key = ")
-            nbtReadStmt(keyType, "key", "entry", true)
-            add("\n")
-            add("val value = ")
-            nbtReadStmt(valueType, "value", "entry", true)
-            add("\n")
-            addStatement("result[key] = value")
-            endControlFlow()
-            addStatement("result")
-            hasWrapper.doUnless { endControlFlowNoNl() }
-        }
-    )
-
-    private fun CodeBlock.Builder.nbtReadStmt(
-        targetType: KSType,
-        nbtKey: String,
-        compound: String,
-        hasWrapper: Boolean = false
-    ) {
-        val generator = codeGenNbtGetMap
-            .first { it.first(targetType) }
-            .second
-        this.generator(targetType, nbtKey, compound, hasWrapper)
-    }
 
     fun CodeBlock.Builder.nbtReadProperty(propDecl: KSPropertyDeclaration, compound: String) {
         val propType = propDecl.type.resolve()
-        nbtReadStmt(propType, propDecl.declShortName, compound)
+        nbtGet(propType, propDecl.declShortName, compound, false)
     }
 
-
-    private val typeToPacketRead = listOf<Pair<KSTypePredicate, BufGetFunc>>(
-        { type: KSType -> type.isMarkedNullable } to { sourceType, bufVar, _ ->
-            val nonNullableType = sourceType.makeNotNullable()
-            beginControlFlow("run")
-            beginControlFlow("if($bufVar.readBoolean())")
-            packetReadStmt(nonNullableType, bufVar, true)
-            nextControlFlow("else")
-            addStatement("null")
-            endControlFlow()
-            endControlFlowNoNl()
-        },
-
-        ofType(IntType) to { _, bufVar, _ ->
-            add("$bufVar.readInt()")
-        },
-        ofType(StringType) to { _, bufVar, _ ->
-            add("$bufVar.readString()")
-        },
-        ofType(ItemType) to { _, bufVar, _ ->
-            add(
-                "%T.ITEM.get(%T.tryParse($bufVar.readString()))",
-                MC_REGISTRIES_TYPE_NAME,
-                MC_IDENTIFIER_TYPE_NAME
-            )
-        },
-        ofType(BlockPosType) to { _, bufVar, _ ->
-            add("$bufVar.readBlockPos()")
-        },
-        ofType(IntList) to { _, bufVar, _ ->
-            add("$bufVar.readIntList()")
-        },
-
-        { type: KSType -> generatedClassTypes.contains(type) } to { sourceType, bufVar, _ ->
-            add("${sourceType.declaration.simpleName.asString()}.readFrom($bufVar)")
-        },
-        { type: KSType -> type.declaration == MutableMapDecl } to { sourceType, bufVar, hasWrapper ->
-            hasWrapper.doUnless { beginControlFlow("run") }
-
-            val keyType = sourceType.arguments[0].type!!.resolve()
-            val valueType = sourceType.arguments[1].type!!.resolve()
-            addStatement(
-                "val result = %T()", resolver.getKSTypeByName(
-                    "java.util.HashMap", keyType, valueType
-                ).toTypeName()
-            )
-            beginControlFlow("repeat($bufVar.readInt())")
-            add("val key = ")
-            packetReadStmt(keyType, bufVar, true)
-            add("\n")
-            add("val value = ")
-            packetReadStmt(valueType, bufVar, true)
-            add("\n")
-            addStatement("result[key] = value")
-            endControlFlow()
-            addStatement("result")
-            hasWrapper.doUnless { endControlFlowNoNl() }
-        }
-    )
-
-
-    fun CodeBlock.Builder.packetReadStmt(targetType: KSType, bufVar: String, hasWrapper: Boolean = false) {
-        val generator = typeToPacketRead
-            .first { it.first(targetType) }
-            .second
-        this.generator(targetType, bufVar, hasWrapper)
-    }
 
     fun CodeBlock.Builder.packetReadStmt(propDecl: KSPropertyDeclaration, nbtVar: String) {
         val propType = propDecl.type.resolve()
-        packetReadStmt(propType, nbtVar)
-    }
-
-
-    private val typeToPacketPut = listOf<Pair<KSTypePredicate, BufPutFunc>>(
-        { type: KSType -> type.isMarkedNullable } to { sourceType, source, bufVar, _ ->
-            val nonNullableType = sourceType.makeNotNullable()
-            addStatement("$bufVar.writeBoolean($source != null)")
-            beginControlFlow("$source?.let")
-            packetPutStmt(nonNullableType, "it", bufVar, true)
-            endControlFlow()
-        },
-        ofType(IntType) to { _, source, bufVar, _ ->
-            addStatement("$bufVar.writeInt($source)")
-        },
-        ofType(StringType) to { _, source, bufVar, _ ->
-            addStatement("$bufVar.writeString($source)")
-        },
-        ofType(ItemType) to { _, source, bufVar, _ ->
-            addStatement(
-                "$bufVar.writeString(%T.ITEM.getId($source).toString())",
-                MC_REGISTRIES_TYPE_NAME
-            )
-        },
-        ofType(BlockPosType) to { _, source, bufVar, _ ->
-            addStatement("$bufVar.writeBlockPos($source)")
-        },
-        ofType(IntList) to { _, source, bufVar, _ ->
-            addStatement("$bufVar.writeVarInt($source.size)")
-            beginControlFlow("for(e in $source)")
-            addStatement("$bufVar.writeVarInt(e)")
-            endControlFlow()
-        },
-        { type: KSType -> generatedClassTypes.contains(type) } to { sourceType, source, bufVar, _ ->
-            addStatement("$source.writeTo($bufVar)")
-        },
-        { type: KSType -> type.declaration == MutableMapDecl } to { sourceType, source, bufVar, _ ->
-            addStatement("$bufVar.writeInt($source.size)")
-            beginControlFlow("for(entry in $source)")
-            packetPutStmt(sourceType.arguments[0].type!!.resolve(), "entry.key", bufVar)
-            packetPutStmt(sourceType.arguments[1].type!!.resolve(), "entry.value", bufVar)
-            endControlFlow()
-        },
-    )
-
-    fun CodeBlock.Builder.packetPutStmt(
-        sourceType: KSType,
-        source: String,
-        bufVar: String,
-        hasWrapper: Boolean = false
-    ) {
-        val generator = typeToPacketPut
-            .first { it.first(sourceType) }
-            .second
-        this.generator(sourceType, source, bufVar, hasWrapper)
+        bufGet(propType, nbtVar, false)
     }
 
     fun CodeBlock.Builder.packetPutStmt(propDecl: KSPropertyDeclaration, propSource: String, nbtVar: String) {
         val propType = propDecl.type.resolve()
-        packetPutStmt(propType, "${propSource}.${propDecl.declShortName}", nbtVar)
+        bufPut(propType, "${propSource}.${propDecl.declShortName}", nbtVar, false)
+    }
+
+    override fun CodeBlock.Builder.nbtPut(
+        sourceType: KSType,
+        source: String,
+        nbtKey: String,
+        compound: String,
+        hasWrapper: Boolean
+    ) {
+        accessGenerators.first { it.match(sourceType) }.run {
+            nbtPut(sourceType, source, nbtKey, compound, hasWrapper)
+        }
+    }
+
+    override fun CodeBlock.Builder.nbtGet(sourceType: KSType, nbtKey: String, compound: String, hasWrapper: Boolean) {
+        accessGenerators.first { it.match(sourceType) }.run {
+            nbtGet(sourceType, nbtKey, compound, hasWrapper)
+        }
+    }
+
+    override fun CodeBlock.Builder.bufPut(sourceType: KSType, source: String, bufVar: String, hasWrapper: Boolean) {
+        accessGenerators.first { it.match(sourceType) }.run {
+            bufPut(sourceType, source, bufVar, hasWrapper)
+        }
+    }
+
+    override fun CodeBlock.Builder.bufGet(sourceType: KSType, bufVar: String, hasWrapper: Boolean) {
+        accessGenerators.first { it.match(sourceType) }.run {
+            bufGet(sourceType, bufVar, hasWrapper)
+        }
     }
     // endregion
-}
-
-typealias KSTypePredicate = (type: KSType) -> Boolean
-typealias NbtPutFunc = CodeBlock.Builder.(sourceType: KSType, source: String, nbtKey: String, compound: String, hasWrapper: Boolean) -> Unit
-typealias NbtGetFunc = CodeBlock.Builder.(sourceType: KSType, nbtKey: String, compound: String, hasWrapper: Boolean) -> Unit
-typealias BufGetFunc = CodeBlock.Builder.(sourceType: KSType, bufVar: String, hasWrapper: Boolean) -> Unit
-typealias BufPutFunc = CodeBlock.Builder.(sourceType: KSType, source: String, bufVar: String, hasWrapper: Boolean) -> Unit
-
-fun ofType(type: KSType): KSTypePredicate {
-    return { it == type }
 }
