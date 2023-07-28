@@ -41,3 +41,13 @@ interface StructOfNullableLists {
 interface CustomStruct3 {
     companion object
 }
+
+@McSerialize
+abstract class FinderState(public val id: Int) {
+    public abstract val intField: Int
+
+    public val publicIgnoredMap: MutableMap<Int, Int> = HashMap()
+    private val privateIgnoredMap: MutableMap<Int, Int> = HashMap()
+
+    companion object
+}

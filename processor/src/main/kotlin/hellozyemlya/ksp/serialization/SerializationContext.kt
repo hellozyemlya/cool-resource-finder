@@ -1,6 +1,9 @@
 package hellozyemlya.ksp.serialization
 
 import com.google.devtools.ksp.getClassDeclarationByName
+import com.google.devtools.ksp.isAbstract
+import com.google.devtools.ksp.isConstructor
+import com.google.devtools.ksp.isPublic
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.*
@@ -9,7 +12,6 @@ import com.squareup.kotlinpoet.ParameterSpec
 import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.ksp.toTypeName
 import java.io.OutputStream
-import kotlin.reflect.KClass
 
 operator fun OutputStream.plusAssign(str: String) {
     this.write(str.toByteArray())
@@ -17,6 +19,10 @@ operator fun OutputStream.plusAssign(str: String) {
 
 fun KSClassDeclaration.toTypeName(): TypeName {
     return this.asType(emptyList()).toTypeName()
+}
+
+fun KSClassDeclaration.singleCtor(): KSFunctionDeclaration {
+    return this.declarations.filterIsInstance<KSFunctionDeclaration>().filter { it.isConstructor() }.single()
 }
 
 val KSClassDeclaration.declShortName: String
@@ -298,12 +304,12 @@ class NullWrapAccessGenerator(private val nested: AccessStatements) : AccessGene
 }
 
 
-class SerializableStructAccessGenerator(private val structs: List<KSType>) : AccessGenerator {
+class SerializableStructAccessGenerator(private val structs: List<ClassGenerationInfo>) : AccessGenerator {
     override val priority: Int
         get() = Int.MAX_VALUE
 
     override fun match(sourceType: KSType): Boolean {
-        return structs.contains(sourceType)
+        return structs.singleOrNull { it.baseType == sourceType } != null
     }
 
     override fun CodeBlock.Builder.nbtPut(
@@ -355,7 +361,12 @@ abstract class BaseCollectionAccessGenerator(private val nbtListType: KSType) : 
         hasWrapper.doUnless { endControlFlow() }
     }
 
-    protected abstract fun CodeBlock.Builder.nbtPutEntry(argumentsList: List<KSType>, targetNbt: String, entrySource: String)
+    protected abstract fun CodeBlock.Builder.nbtPutEntry(
+        argumentsList: List<KSType>,
+        targetNbt: String,
+        entrySource: String
+    )
+
     override fun CodeBlock.Builder.nbtGet(sourceType: KSType, nbtKey: String, compound: String, hasWrapper: Boolean) {
         val elementTypes = getPrelude(sourceType, hasWrapper)
         addStatement("val list = $compound.getList(\"$nbtKey\", %T.COMPOUND_TYPE.toInt())", NBT_ELEMENT_TYPE_NAME)
@@ -374,7 +385,11 @@ abstract class BaseCollectionAccessGenerator(private val nbtListType: KSType) : 
         endControlFlow()
     }
 
-    protected abstract fun CodeBlock.Builder.bufPutEntry(argumentsList: List<KSType>, bufVar: String, entrySource: String)
+    protected abstract fun CodeBlock.Builder.bufPutEntry(
+        argumentsList: List<KSType>,
+        bufVar: String,
+        entrySource: String
+    )
 
     override fun CodeBlock.Builder.bufGet(sourceType: KSType, bufVar: String, hasWrapper: Boolean) {
         val elementTypes = getPrelude(sourceType, hasWrapper)
@@ -399,6 +414,7 @@ abstract class BaseCollectionAccessGenerator(private val nbtListType: KSType) : 
 
     protected abstract fun getCollectionType(arguments: List<KSType>): KSType
 }
+
 class MapAccessGenerator(
     private val mapDecl: KSClassDeclaration,
     private val nbtListType: KSType,
@@ -452,9 +468,10 @@ class MapAccessGenerator(
         return sourceType.declaration == mapDecl
     }
 }
+
 class SerializableStructListAccessGenerator(
     private val listDecl: KSClassDeclaration,
-    private val generatedStructs: List<KSType>,
+    private val generatedStructs: List<ClassGenerationInfo>,
     nbtListType: KSType,
     private val resolver: Resolver
 ) : BaseCollectionAccessGenerator(nbtListType) {
@@ -462,7 +479,12 @@ class SerializableStructListAccessGenerator(
         get() = 0
 
     override fun match(sourceType: KSType): Boolean {
-        return sourceType.declaration == listDecl && generatedStructs.contains(sourceType.arguments[0].type!!.resolve())
+        if(sourceType.declaration == listDecl) {
+            val argType = sourceType.arguments[0].type!!.resolve()
+            return generatedStructs.singleOrNull { it.baseType == argType } != null
+        }
+
+        return false
     }
 
     override fun CodeBlock.Builder.nbtPutEntry(argumentsList: List<KSType>, targetNbt: String, entrySource: String) {
@@ -491,6 +513,7 @@ class SerializableStructListAccessGenerator(
         return resolver.getKSTypeByName("java.util.ArrayList", arguments[0])
     }
 }
+
 class GenericListAccessGenerator(
     private val listDecl: KSClassDeclaration,
     nbtListType: KSType,
@@ -539,6 +562,78 @@ class GenericListAccessGenerator(
     }
 }
 
+
+class ClassGenerationInfo(public val classDecl: KSClassDeclaration) {
+    public val baseType: KSType by lazy {
+        classDecl.asType(emptyList())
+    }
+
+    public val companionTypeName: TypeName by lazy {
+        classDecl.companionObject.toTypeName()
+    }
+
+    public val baseTypeName: TypeName by lazy {
+        classDecl.toTypeName()
+    }
+
+    val implClassName: String by lazy {
+        "${classDecl.simpleName.asString()}Impl"
+    }
+
+    val propsToImplement: List<KSPropertyDeclaration> by lazy {
+        classDecl.getAllProperties().filter { it.isAbstract() && it.isPublic() }.toList()
+    }
+    val implCtorCallArgs: String by lazy {
+        this.ctorArgs.joinToString(", ") { it.name }
+    }
+
+    val baseCtorProps: List<KSPropertyDeclaration> by lazy {
+        if (classDecl.classKind == ClassKind.CLASS && classDecl.isAbstract()) {
+            classDecl.singleCtor().parameters.map { param ->
+                classDecl.getAllProperties().single { it.simpleName == param.name }
+            }
+        } else {
+            emptyList()
+        }
+    }
+
+    val propertiesToWrite: List<KSPropertyDeclaration> by lazy {
+        baseCtorProps + propsToImplement
+    }
+
+    val callSuperCtor: Boolean = classDecl.classKind == ClassKind.CLASS && classDecl.isAbstract()
+
+    val superCtorArgs: List<ParameterSpec> by lazy {
+        if (classDecl.classKind == ClassKind.CLASS && classDecl.isAbstract()) {
+            classDecl.singleCtor().parameters.map {
+                ParameterSpec
+                    .builder(it.name!!.asString(), it.type.toTypeName())
+                    .build()
+            }
+        } else {
+            emptyList()
+        }
+    }
+
+    val ctorArgs: List<ParameterSpec> by lazy {
+        val abstractCtorClassArgs = if (classDecl.classKind == ClassKind.CLASS && classDecl.isAbstract()) {
+            classDecl.singleCtor().parameters.map {
+                ParameterSpec
+                    .builder(it.name!!.asString(), it.type.toTypeName())
+                    .build()
+            }
+        } else {
+            emptyList()
+        }
+
+        abstractCtorClassArgs + propsToImplement.map {
+            ParameterSpec
+                .builder(it.declShortName, it.type.toTypeName())
+                .build()
+        }
+    }
+}
+
 class SerializationContext(private val resolver: Resolver, private val logger: KSPLogger) : AccessStatements {
     private val MutableListDecl = resolver.getClassDeclarationByName("kotlin.collections.MutableList")!!
     private val MutableMapDecl = resolver.getClassDeclarationByName("kotlin.collections.MutableMap")!!
@@ -551,15 +646,22 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
     private val StringListType = resolver.getKSTypeByName("kotlin.collections.MutableList", StringType)
     private val NbtListType = resolver.getKSTypeByName("net.minecraft.nbt.NbtList")
 
-    public val generatedClassDecls: MutableList<KSClassDeclaration> = ArrayList()
-    private val generatedClassTypes: MutableList<KSType> = ArrayList()
+
+    public val generationInfos: MutableList<ClassGenerationInfo> = ArrayList()
+
+//    public val generatedClassDecls: MutableList<KSClassDeclaration> = ArrayList()
+//
+//    // used for checking if class is serializable or not
+//    private val generatedClassTypes: MutableList<KSType> = ArrayList()
 
     fun addClassesForGeneration(candidates: Sequence<KSClassDeclaration>): Boolean {
-        val isValid = candidates.all { validateGenCandidateDecl(it, candidates) }
+        val nonNullableCandidates = candidates.map { it.asType(emptyList()).makeNotNullable() }.toList()
+        val isValid = candidates.all { validateGenCandidateDecl(it, nonNullableCandidates) }
 
         if (isValid) {
-            generatedClassDecls.addAll(candidates)
-            generatedClassTypes.addAll(candidates.map { it.asType(emptyList()) })
+//            generatedClassDecls.addAll(candidates)
+//            generatedClassTypes.addAll(candidates.map { it.asType(emptyList()) })
+            generationInfos.addAll(candidates.map { ClassGenerationInfo(it) })
         }
 
         return isValid
@@ -567,9 +669,77 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
 
     private fun validateGenCandidateDecl(
         candidate: KSClassDeclaration,
-        candidates: Sequence<KSClassDeclaration>
+        nonNullableCandidates: List<KSType>
     ): Boolean {
-        val candidatesTypes = candidates.map { it.asType(emptyList()).makeNotNullable() }.toList()
+        if (candidate.classKind == ClassKind.INTERFACE) {
+            return validateGenCandidateInterfaceDecl(candidate, nonNullableCandidates)
+        } else if (candidate.classKind == ClassKind.CLASS) {
+            if (candidate.isAbstract()) {
+                return validateGenCandidateAbstractDecl(candidate, nonNullableCandidates)
+            }
+        }
+
+        logger.error("only interface or abstract classes supported", candidate)
+
+        return false
+    }
+
+    private fun validateGenCandidateAbstractDecl(
+        candidate: KSClassDeclaration,
+        nonNullableCandidateTypes: List<KSType>
+    ): Boolean {
+        var isValid = true
+
+        // validate all abstract properties
+        candidate.getAllProperties().filter { it.isAbstract() }.forEach { propDecl ->
+            if (!propDecl.isPublic()) {
+                isValid = false
+                logger.error("only public abstract properties supported", propDecl)
+            }
+
+            val propType = propDecl.type.resolve().makeNotNullable()
+            if (!isTypeSupported(propType, nonNullableCandidateTypes)) {
+                isValid = false
+                logger.error("property has unsupported type", propDecl)
+            }
+        }
+
+        // validate companion object
+        if (candidate.declarations.filterIsInstance<KSClassDeclaration>()
+                .firstOrNull { it.isCompanionObject } == null
+        ) {
+            logger.error("serializable requires companion object to assign creation functions", candidate)
+            isValid = false
+        }
+
+        // validate ctor
+        val constructors =
+            candidate.declarations.filterIsInstance<KSFunctionDeclaration>().filter { it.isConstructor() }
+
+        if (constructors.count() != 1) {
+            logger.error("only one constructor must exist", candidate)
+            isValid = false
+        } else {
+            val ctor = constructors.first()
+            ctor.parameters.forEach { ctorParam ->
+                if (ctorParam.isVal || ctorParam.isVal) {
+                    if (!candidate.getAllProperties().first { it.simpleName == ctorParam.name }.isPublic()) {
+                        logger.error("ctor parameters must be public properties", ctorParam)
+                        isValid = false
+                    }
+                } else {
+                    logger.error("ctor parameters must be properties", candidate)
+                    isValid = false
+                }
+            }
+        }
+        return isValid
+    }
+
+    private fun validateGenCandidateInterfaceDecl(
+        candidate: KSClassDeclaration,
+        nonNullableCandidateTypes: List<KSType>
+    ): Boolean {
 
         var isValid = true
         if (candidate.classKind != ClassKind.INTERFACE) {
@@ -604,7 +774,7 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
 
         candidate.getAllProperties().forEach { propDecl ->
             val propType = propDecl.type.resolve().makeNotNullable()
-            if (!isTypeSupported(propType, candidatesTypes)) {
+            if (!isTypeSupported(propType, nonNullableCandidateTypes)) {
                 isValid = false
                 logger.error("property has unsupported type", propDecl)
             }
@@ -651,10 +821,10 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
         StringAccessGenerator(StringType),
         BlockPosAccessGenerator(BlockPosType),
         IntListAccessGenerator(IntListType),
-        SerializableStructAccessGenerator(generatedClassTypes),
+        SerializableStructAccessGenerator(generationInfos),
         GenericListAccessGenerator(MutableListDecl, NbtListType, resolver, this),
         MapAccessGenerator(MutableMapDecl, NbtListType, resolver, this),
-        SerializableStructListAccessGenerator(MutableListDecl, generatedClassTypes, NbtListType, resolver),
+        SerializableStructListAccessGenerator(MutableListDecl, generationInfos, NbtListType, resolver),
         ItemAccessGenerator(ItemType)
     ).sortedBy { it.priority }
 
