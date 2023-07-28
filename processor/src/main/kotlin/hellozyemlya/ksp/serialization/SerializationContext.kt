@@ -25,27 +25,12 @@ fun KSClassDeclaration.singleCtor(): KSFunctionDeclaration {
     return this.declarations.filterIsInstance<KSFunctionDeclaration>().filter { it.isConstructor() }.single()
 }
 
-val KSClassDeclaration.declShortName: String
-    get() = this.simpleName.asString()
-
 val KSClassDeclaration.companionObject: KSClassDeclaration
     get() = this.declarations.filterIsInstance<KSClassDeclaration>().first { it.isCompanionObject }
-
-val KSClassDeclaration.allProps: List<KSPropertyDeclaration>
-    get() = this.getAllProperties().toList()
 
 val KSPropertyDeclaration.declShortName: String
     get() = this.simpleName.asString()
 
-val KSClassDeclaration.ctorParameters: List<ParameterSpec>
-    get() = this.allProps.map { propertyDecl ->
-        ParameterSpec
-            .builder(propertyDecl.declShortName, propertyDecl.type.resolve().toTypeName())
-            .build()
-    }.toList()
-
-val KSClassDeclaration.ctorCallArgs: String
-    get() = this.allProps.joinToString(", ") { it.declShortName }
 
 fun Resolver.getKSTypeByName(name: String): KSType {
     return this.getClassDeclarationByName(name)!!.asType(emptyList())
@@ -563,7 +548,11 @@ class GenericListAccessGenerator(
 }
 
 
-class ClassGenerationInfo(public val classDecl: KSClassDeclaration) {
+class ClassGenerationInfo(public val classDecl: KSClassDeclaration, val persistentStateType: KSType) {
+    public val isPersistentState: Boolean by lazy {
+        classDecl.superTypes.firstOrNull { it.resolve() == persistentStateType } != null
+    }
+
     public val baseType: KSType by lazy {
         classDecl.asType(emptyList())
     }
@@ -645,7 +634,8 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
     private val IntListType = resolver.getKSTypeByName("kotlin.collections.MutableList", IntType)
     private val StringListType = resolver.getKSTypeByName("kotlin.collections.MutableList", StringType)
     private val NbtListType = resolver.getKSTypeByName("net.minecraft.nbt.NbtList")
-
+    private val NbtCompondType = resolver.getKSTypeByName("net.minecraft.nbt.NbtCompound")
+    private val PersistentStateType = resolver.getKSTypeByName("net.minecraft.world.PersistentState")
 
     public val generationInfos: MutableList<ClassGenerationInfo> = ArrayList()
 
@@ -659,9 +649,7 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
         val isValid = candidates.all { validateGenCandidateDecl(it, nonNullableCandidates) }
 
         if (isValid) {
-//            generatedClassDecls.addAll(candidates)
-//            generatedClassTypes.addAll(candidates.map { it.asType(emptyList()) })
-            generationInfos.addAll(candidates.map { ClassGenerationInfo(it) })
+            generationInfos.addAll(candidates.map { ClassGenerationInfo(it, PersistentStateType) })
         }
 
         return isValid
@@ -729,6 +717,20 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
                     }
                 } else {
                     logger.error("ctor parameters must be properties", candidate)
+                    isValid = false
+                }
+            }
+        }
+        // validate PersistentState inheritance
+        candidate.superTypes.forEach { baseTypeRef ->
+            if(baseTypeRef.resolve() == PersistentStateType) {
+                val writeNbtMethod = candidate.getAllFunctions().single {
+                    it.simpleName.asString() == "writeNbt"
+                            && it.returnType!!.resolve().declaration.qualifiedName == NbtCompondType.declaration.qualifiedName
+                            && it.parameters.singleOrNull()?.type?.resolve()?.declaration?.qualifiedName == NbtCompondType.declaration.qualifiedName
+                }
+                if(!writeNbtMethod.isAbstract) {
+                    logger.error("writeNbt must not be implemented", writeNbtMethod)
                     isValid = false
                 }
             }

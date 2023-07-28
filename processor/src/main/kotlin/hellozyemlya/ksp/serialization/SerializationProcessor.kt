@@ -3,6 +3,7 @@ package hellozyemlya.ksp.serialization
 import com.google.devtools.ksp.processing.*
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.google.devtools.ksp.symbol.Modifier
 import com.google.devtools.ksp.validate
 import com.squareup.kotlinpoet.*
 import com.squareup.kotlinpoet.ksp.toTypeName
@@ -84,16 +85,34 @@ class SerializationProcessor(
                                 // implement properties
                                 .apply {
                                     genInfo.propsToImplement.forEach { propertyDecl ->
-                                        addProperty(
-                                            PropertySpec
-                                                .builder(
-                                                    propertyDecl.declShortName,
-                                                    propertyDecl.type.resolve().toTypeName()
-                                                )
-                                                .addModifiers(KModifier.PUBLIC, KModifier.OVERRIDE)
-                                                .mutable(propertyDecl.isMutable)
-                                                .build()
-                                        )
+                                        if (genInfo.isPersistentState && propertyDecl.isMutable) {
+                                            addProperty(
+                                                PropertySpec
+                                                    .builder(
+                                                        propertyDecl.declShortName,
+                                                        propertyDecl.type.resolve().toTypeName()
+                                                    )
+                                                    .addModifiers(KModifier.PUBLIC, KModifier.OVERRIDE)
+                                                    .mutable(propertyDecl.isMutable)
+                                                    .setter(FunSpec
+                                                        .setterBuilder()
+                                                        .addParameter("newValue", propertyDecl.type.resolve().toTypeName())
+                                                        .addCode(CodeBlock.of("markDirty()\nfield = newValue"))
+                                                        .build())
+                                                    .build()
+                                            )
+                                        } else {
+                                            addProperty(
+                                                PropertySpec
+                                                    .builder(
+                                                        propertyDecl.declShortName,
+                                                        propertyDecl.type.resolve().toTypeName()
+                                                    )
+                                                    .addModifiers(KModifier.PUBLIC, KModifier.OVERRIDE)
+                                                    .mutable(propertyDecl.isMutable)
+                                                    .build()
+                                            )
+                                        }
                                     }
                                 }
                                 // implement ctor
@@ -114,6 +133,19 @@ class SerializationProcessor(
                                         )
                                         .build()
                                 )
+                                // generate writeNbt function
+                                .apply {
+                                    if (genInfo.isPersistentState) {
+                                        addFunction(
+                                            FunSpec.builder("writeNbt")
+                                                .returns(NBT_COMPOUND_TYPE_NAME)
+                                                .addModifiers(KModifier.OVERRIDE)
+                                                .addParameter("nbt", NBT_COMPOUND_TYPE_NAME)
+                                                .addCode(CodeBlock.of("this.writeTo(nbt)\nreturn nbt"))
+                                                .build()
+                                        )
+                                    }
+                                }
                                 .build()
                         )
                         // impl creation function

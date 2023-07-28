@@ -3,6 +3,7 @@ package hellozyemlya.serializationtest
 import hellozyemlya.serialization.annotations.McSerialize
 import net.minecraft.item.Item
 import net.minecraft.util.math.BlockPos
+import net.minecraft.world.PersistentState
 
 @McSerialize
 interface CustomStruct {
@@ -45,6 +46,16 @@ interface CustomStruct3 {
 @McSerialize
 abstract class FinderState(public val id: Int) {
     public abstract val intField: Int
+
+    public val publicIgnoredMap: MutableMap<Int, Int> = HashMap()
+    private val privateIgnoredMap: MutableMap<Int, Int> = HashMap()
+
+    companion object
+}
+
+@McSerialize
+abstract class PersistentStateExample(public val id: Int) : PersistentState() {
+    public abstract var intField: Int
 
     public val publicIgnoredMap: MutableMap<Int, Int> = HashMap()
     private val privateIgnoredMap: MutableMap<Int, Int> = HashMap()
