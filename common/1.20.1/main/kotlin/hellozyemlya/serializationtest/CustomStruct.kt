@@ -1,9 +1,11 @@
 package hellozyemlya.serializationtest
 
 import hellozyemlya.serialization.annotations.McSerialize
+import hellozyemlya.serialization.annotations.PersistentStateArg
 import net.minecraft.item.Item
 import net.minecraft.util.math.BlockPos
 import net.minecraft.world.PersistentState
+import net.minecraft.world.PersistentStateManager
 
 @McSerialize
 interface CustomStruct {
@@ -54,7 +56,7 @@ abstract class FinderState(public val id: Int) {
 }
 
 @McSerialize
-abstract class PersistentStateExample(public val id: Int) : PersistentState() {
+abstract class PersistentStateExample(@PersistentStateArg public val id: Int) : PersistentState() {
     public abstract var intField: Int
 
     public val publicIgnoredMap: MutableMap<Int, Int> = HashMap()
@@ -62,3 +64,4 @@ abstract class PersistentStateExample(public val id: Int) : PersistentState() {
 
     companion object
 }
+

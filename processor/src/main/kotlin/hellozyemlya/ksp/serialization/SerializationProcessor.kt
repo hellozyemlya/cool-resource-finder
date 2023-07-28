@@ -8,15 +8,27 @@ import com.google.devtools.ksp.validate
 import com.squareup.kotlinpoet.*
 import com.squareup.kotlinpoet.ksp.toTypeName
 import com.squareup.kotlinpoet.ksp.writeTo
+import java.util.function.Predicate
 
 val NBT_COMPOUND_TYPE_NAME = ClassName("net.minecraft.nbt", "NbtCompound")
 val NBT_ELEMENT_TYPE_NAME = ClassName("net.minecraft.nbt", "NbtElement")
 val MC_ITEM_TYPE_NAME = ClassName("net.minecraft.item", "Item")
+val MC_ITEMS_TYPE_NAME = ClassName("net.minecraft.item", "Items")
 val MC_REGISTRIES_TYPE_NAME = ClassName("net.minecraft.registry", "Registries")
 val MC_BLOCK_POS_TYPE_NAME = ClassName("net.minecraft.util.math", "BlockPos")
 val MC_IDENTIFIER_TYPE_NAME = ClassName("net.minecraft.util", "Identifier")
 val MC_PACKET_BUF_TYPE_NAME = ClassName("net.minecraft.network", "PacketByteBuf")
+val MC_PERSISTENT_STATE_MANAGER = ClassName("net.minecraft.world", "PersistentStateManager")
+val STRING_TYPE_NAME = ClassName("kotlin", "String")
 
+inline fun <T> Collection<T>.contains(predicate: (element: T) -> Boolean) : Boolean {
+    this.forEach { element->
+        if(predicate(element)) {
+            return true
+        }
+    }
+    return false
+}
 
 class SerializationProcessor(
     private val options: Map<String, String>,
@@ -148,6 +160,45 @@ class SerializationProcessor(
                                 }
                                 .build()
                         )
+                        // generate persistent state manager getter function
+                        if(genInfo.isPersistentState) {
+                            // impl creation function
+                            addFunction(
+                                FunSpec.builder("getOrCreate")
+                                    .receiver(MC_PERSISTENT_STATE_MANAGER)
+                                    .addParameter("stateId", STRING_TYPE_NAME)
+                                    .addParameters(genInfo.persistentStateArgs)
+                                    .returns(genInfo.baseTypeName)
+                                    .addCode(
+                                        CodeBlock.builder().apply {
+                                            addStatement("val existent: %T? = this.get(${genInfo.companionTypeName}::readFrom, stateId)", genInfo.baseTypeName)
+                                            beginControlFlow("if (existent != null)")
+                                            addStatement("return existent")
+                                            nextControlFlow("else")
+                                            add("val newInstance = ${genInfo.implClassName}(\n")
+                                            withIndent {
+                                                val propIt = genInfo.propertiesToWrite.iterator()
+                                                while (propIt.hasNext()) {
+                                                    val prop = propIt.next()
+                                                    if(genInfo.persistentStateArgs.contains { it.name == prop.simpleName.asString()}) {
+                                                        add(prop.simpleName.asString())
+                                                    } else {
+                                                        defaultValue(prop.type.resolve())
+                                                    }
+                                                    if (propIt.hasNext()) {
+                                                        add(",\n")
+                                                    }
+                                                }
+                                            }
+                                            add("\n)\n")
+                                            addStatement("this.set(stateId, newInstance)")
+                                            addStatement("return newInstance")
+                                            endControlFlow()
+                                        }.build()
+                                    )
+                                    .build()
+                            )
+                        }
                         // impl creation function
                         addFunction(
                             FunSpec.builder("create")
@@ -158,6 +209,29 @@ class SerializationProcessor(
                                     CodeBlock.builder().apply {
                                         addStatement("return ${genInfo.implClassName}(${genInfo.implCtorCallArgs})")
                                     }.build()
+                                )
+                                .build()
+                        )
+                        // impl default creation function
+                        addFunction(
+                            FunSpec.builder("createDefault")
+                                .receiver(genInfo.companionTypeName)
+                                .returns(genInfo.baseTypeName)
+                                .addCode(
+                                    CodeBlock.builder()
+                                        .apply {
+                                            add("return ${genInfo.implClassName}(\n")
+                                            withIndent {
+                                                val propIt = genInfo.propertiesToWrite.iterator()
+                                                while (propIt.hasNext()) {
+                                                    defaultValue(propIt.next().type.resolve())
+                                                    if (propIt.hasNext()) {
+                                                        add(",\n")
+                                                    }
+                                                }
+                                            }
+                                            add("\n)")
+                                        }.build()
                                 )
                                 .build()
                         )

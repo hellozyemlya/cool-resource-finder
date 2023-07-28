@@ -7,6 +7,7 @@ import com.google.devtools.ksp.isPublic
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.*
+import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.ParameterSpec
 import com.squareup.kotlinpoet.TypeName
@@ -592,6 +593,13 @@ class ClassGenerationInfo(public val classDecl: KSClassDeclaration, val persiste
 
     val callSuperCtor: Boolean = classDecl.classKind == ClassKind.CLASS && classDecl.isAbstract()
 
+    public val persistentStateArgs: List<ParameterSpec> by lazy {
+        propertiesToWrite.filter { it.annotations.firstOrNull {
+            it.annotationType.resolve().toTypeName() == ClassName("hellozyemlya.serialization.annotations", "PersistentStateArg")
+        } != null
+        }.map { ParameterSpec.builder(it.declShortName, it.type.toTypeName()).build() }
+    }
+
     val superCtorArgs: List<ParameterSpec> by lazy {
         if (classDecl.classKind == ClassKind.CLASS && classDecl.isAbstract()) {
             classDecl.singleCtor().parameters.map {
@@ -639,10 +647,6 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
 
     public val generationInfos: MutableList<ClassGenerationInfo> = ArrayList()
 
-//    public val generatedClassDecls: MutableList<KSClassDeclaration> = ArrayList()
-//
-//    // used for checking if class is serializable or not
-//    private val generatedClassTypes: MutableList<KSType> = ArrayList()
 
     fun addClassesForGeneration(candidates: Sequence<KSClassDeclaration>): Boolean {
         val nonNullableCandidates = candidates.map { it.asType(emptyList()).makeNotNullable() }.toList()
@@ -816,6 +820,26 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
 
 
     // region Statement Helper
+    fun CodeBlock.Builder.defaultValue(type: KSType) {
+        when {
+            type.isMarkedNullable ->
+                add("null")
+            type == IntType ->
+                add("0")
+            type == StringType ->
+                add("\"\"")
+            type == BlockPosType ->
+                add("%T.ORIGIN", MC_BLOCK_POS_TYPE_NAME)
+            type == ItemType ->
+                add("%T.AIR", MC_ITEMS_TYPE_NAME)
+            type.declaration == MutableMapDecl ->
+                add("mutableMapOf()")
+            type.declaration == MutableListDecl ->
+                add("mutableListOf()")
+            generationInfos.firstOrNull { it.baseType == type } != null ->
+                add("%T.createDefault()", generationInfos.first { it.baseType == type }.companionTypeName)
+        }
+    }
 
     private val accessGenerators = listOf(
         NullWrapAccessGenerator(this),
