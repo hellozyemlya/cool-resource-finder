@@ -285,8 +285,8 @@ class FinderItemClientSide : ItemClientSide<FinderItem>(ResourceFinder.RESOURCE_
     }
 
     fun withState(stack: ItemStack, block: (state: ClientFinderState) -> Unit) {
-        if (stack.hasNbt() && stack.orCreateNbt.contains("finder_id")) {
-            val id = stack.orCreateNbt.getInt("finder_id")
+        if (stack.hasNbt() && stack.orCreateNbt.contains(FINDER_ID_NBT_KEY)) {
+            val id = stack.orCreateNbt.getInt(FINDER_ID_NBT_KEY)
             val state = idToState[id]
             if (state != null) {
                 block(state)

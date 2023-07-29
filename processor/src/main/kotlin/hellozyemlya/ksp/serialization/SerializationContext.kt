@@ -848,8 +848,11 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
                     }
                 }
             }
-            isValid = false
-            logger.error("functions not supported in @McSerialize classes, ${funcDecl.simpleName.asString()}", funcDecl)
+
+            if(funcDecl.isAbstract) {
+                isValid = false
+                logger.error("functions not supported in @McSerialize classes, ${funcDecl.simpleName.asString()}", funcDecl)
+            }
         }
 
         candidate.superTypes.forEach { superTypeRef ->

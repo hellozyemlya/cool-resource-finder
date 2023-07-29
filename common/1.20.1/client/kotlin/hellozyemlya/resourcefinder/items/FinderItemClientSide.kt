@@ -284,14 +284,20 @@ class FinderItemClientSide : ItemClientSide<FinderItem>(ResourceFinder.RESOURCE_
         }
     }
 
-    fun withState(stack: ItemStack, block: (state: FinderState) -> Unit) {
-        if (stack.hasNbt() && stack.orCreateNbt.contains("finder_id")) {
-            val id = stack.orCreateNbt.getInt("finder_id")
-            val state = idToState[id]
-            if (state != null) {
-                block(state)
+    private fun withState(stack: ItemStack, block: (state: FinderState) -> Unit) {
+        if (stack.hasNbt()) {
+            val nbt = stack.nbt!!
+            if(nbt.contains(FINDER_ID_NBT_KEY)) {
+                val id = nbt.getInt(FINDER_ID_NBT_KEY)
+                val state = idToState[id]
+                if (state != null) {
+                    block(state)
+                } else {
+                    block(ResourceFinder.RESOURCE_FINDER_ITEM.getNbtState(stack))
+                    ClientPlayNetworking.send(FinderStateRequestPacket(id))
+                }
             } else {
-                ClientPlayNetworking.send(FinderStateRequestPacket(id))
+                block(ResourceFinder.RESOURCE_FINDER_ITEM.getNbtState(stack))
             }
         }
     }

@@ -3,6 +3,7 @@ package hellozyemlya.resourcefinder.items.recipes
 import com.google.common.collect.Streams
 import hellozyemlya.mccompat.RecipeInputInventoryAlias
 import hellozyemlya.resourcefinder.ResourceFinder
+import hellozyemlya.resourcefinder.items.FINDER_ID_NBT_KEY
 import hellozyemlya.resourcefinder.items.server.FinderItemServerSide
 import hellozyemlya.resourcefinder.registry.ResourceRegistry
 import net.minecraft.inventory.Inventory
@@ -53,7 +54,15 @@ class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategor
             val curStack = inventory.getStack(i)
             if (!curStack.isEmpty) {
                 if (curStack.isOf(ResourceFinder.RESOURCE_FINDER_ITEM)) {
+                    if (compassStack != null) {
+                        return false
+                    }
                     compassStack = curStack
+
+                    // just write state to finder stack for item copy
+                    ResourceFinder.RESOURCE_FINDER_ITEM.withServerSide<FinderItemServerSide> {
+                        this.writePersistentFinderStateToNbt(compassStack)
+                    }
                 } else {
                     if (!ResourceRegistry.INSTANCE.canBeChargedBy(curStack.item)) {
                         return false
@@ -66,8 +75,7 @@ class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategor
         if (compassStack != null && charges.size > 0) {
             val estimatedChargesCount =
                 Streams.concat(
-                    ResourceFinder.RESOURCE_FINDER_ITEM.getServerSide<FinderItemServerSide>()
-                        .getState(compassStack).scanList.keys.stream(),
+                    ResourceFinder.RESOURCE_FINDER_ITEM.getNbtState(compassStack).scanList.keys.stream(),
                     charges.stream().map { ResourceRegistry.INSTANCE.getByChargingItem(it.item).group }
                 ).collect(Collectors.toSet()).size
             return estimatedChargesCount <= MAX_SCAN_CHARGES
@@ -80,18 +88,17 @@ class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategor
         val (compass, charges) = getRecipeItems(inventory)
 
         val result = compass.copy()
-        ResourceFinder.RESOURCE_FINDER_ITEM.getServerSide<FinderItemServerSide>().reallocateId(result)
-
-        // TODO use stack nbt data here
+        result.orCreateNbt.remove(FINDER_ID_NBT_KEY)
 
         charges.forEach { chargeStack ->
             val chargeItem = chargeStack.item
             val resourceEntry = ResourceRegistry.INSTANCE.getByChargingItem(chargeItem)
 
             val chargeValue = resourceEntry.getChargeTicks(chargeItem) * chargeStack.count
-
-            ResourceFinder.RESOURCE_FINDER_ITEM.getServerSide<FinderItemServerSide>().getState(result)
-                .putResourceEntry(resourceEntry, chargeValue)
+            ResourceFinder.RESOURCE_FINDER_ITEM
+                .modifyNbtState(result) {
+                    it.putResourceEntry(resourceEntry, chargeValue)
+                }
         }
 
         return result

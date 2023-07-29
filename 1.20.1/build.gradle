@@ -102,6 +102,7 @@ sourceSets {
 		}
 		kotlin {
 			srcDirs += file("${sourcesRoot}/main/kotlin")
+			srcDirs += file("${buildDir}/generated/ksp/main/kotlin")
 		}
 		resources {
 			srcDirs += file("${sourcesRoot}/main/resources")
@@ -113,7 +114,6 @@ sourceSets {
 		}
 		kotlin {
 			srcDirs += file("${sourcesRoot}/client/kotlin")
-			srcDirs += file("${buildDir}/generated/ksp/main/kotlin")
 		}
 		resources {
 			srcDirs += file("${sourcesRoot}/client/resources")

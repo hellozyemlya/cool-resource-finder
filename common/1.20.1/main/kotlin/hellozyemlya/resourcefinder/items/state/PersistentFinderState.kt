@@ -22,6 +22,10 @@ interface FinderState {
     @NbtIgnore
     val targets: MutableMap<Item, BlockPos>
 
+    fun putResourceEntry(entry: ResourceEntry, time: Int) {
+        scanList[entry.group] = scanList.getOrDefault(entry.group, 0) + time
+    }
+
     companion object
 }
 
@@ -46,17 +50,14 @@ abstract class PersistentFinderState : PersistentState(), FinderState {
             targets.clear()
 
             scanList.forEach {
-                scanList.forEach {
-                    val resourceRecord = ResourceRegistry.INSTANCE.getByGroup(it.key)
-                    val posCandidate = resourceRecord.findClosest(16, entity.blockPos, entity.world)
-                    if (posCandidate.isPresent) {
-                        targets[it.key] = posCandidate.get()
-                    }
+                val resourceRecord = ResourceRegistry.INSTANCE.getByGroup(it.key)
+                val posCandidate = resourceRecord.findClosest(16, entity.blockPos, entity.world)
+                if (posCandidate.isPresent) {
+                    targets[it.key] = posCandidate.get()
                 }
             }
 
             markDirty()
-            println("state ${Thread.currentThread().id}")
             ServerPlayNetworking.send(entity, FinderStateUpdatePacket(this))
         } else if (isActive) {
             // todo send deactivation packet
@@ -65,8 +66,8 @@ abstract class PersistentFinderState : PersistentState(), FinderState {
         isActive = false
     }
 
-    fun putResourceEntry(entry: ResourceEntry, time: Int) {
-        scanList[entry.group] = scanList.getOrDefault(entry.group, 0) + time
+    override fun putResourceEntry(entry: ResourceEntry, time: Int) {
+        super.putResourceEntry(entry, time)
         markDirty()
     }
     

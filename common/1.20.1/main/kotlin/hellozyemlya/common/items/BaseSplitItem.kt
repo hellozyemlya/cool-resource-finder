@@ -28,6 +28,10 @@ abstract class BaseSplitItem<TSelf>(settings: Settings?) : Item(settings) where 
         }
     }
 
+    public fun <TServer : ItemServerSide<TSelf>> withServerSide(block: TServer.() -> Unit) {
+        (server as? TServer)?.block()
+    }
+
     override fun appendTooltip(
         stack: ItemStack?,
         world: World?,
