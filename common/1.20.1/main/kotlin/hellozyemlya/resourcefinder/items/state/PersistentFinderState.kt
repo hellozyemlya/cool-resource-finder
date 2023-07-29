@@ -69,14 +69,6 @@ abstract class PersistentFinderState : PersistentState(), FinderState {
         scanList[entry.group] = scanList.getOrDefault(entry.group, 0) + time
         markDirty()
     }
-
-    fun toClient(): ClientFinderState {
-        return ClientFinderState(
-            id,
-            scanList.map { ClientScanRecord(it.key, it.value) },
-            targets.map { ClientTargetRecord(it.key, it.value) }
-        )
-    }
-
+    
     companion object
 }

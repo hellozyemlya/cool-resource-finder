@@ -1,51 +1,20 @@
 package hellozyemlya.resourcefinder.items.state.network
 
 import hellozyemlya.resourcefinder.MOD_NAMESPACE
-import hellozyemlya.resourcefinder.items.state.PersistentFinderState
-import hellozyemlya.resourcefinder.items.state.ClientFinderState
-import hellozyemlya.resourcefinder.items.state.ClientScanRecord
-import hellozyemlya.resourcefinder.items.state.ClientTargetRecord
+import hellozyemlya.resourcefinder.items.state.*
+import hellozyemlya.serialization.generated.readFrom
+import hellozyemlya.serialization.generated.writeTo
 import net.fabricmc.fabric.api.networking.v1.FabricPacket
 import net.fabricmc.fabric.api.networking.v1.PacketType
 import net.minecraft.network.PacketByteBuf
 import net.minecraft.registry.Registries
 import net.minecraft.util.Identifier
 
-class FinderStateUpdatePacket : FabricPacket {
-    public val clientState: ClientFinderState
-
-    constructor(state: PersistentFinderState) {
-        clientState = state.toClient()
-    }
-
-    constructor(buf: PacketByteBuf) {
-        clientState = ClientFinderState(buf.readInt(),
-            List(buf.readInt()) {
-                ClientScanRecord(Registries.ITEM.get(buf.readIdentifier()), buf.readInt())
-            },
-            List(buf.readInt()) {
-                ClientTargetRecord(Registries.ITEM.get(buf.readIdentifier()), buf.readBlockPos())
-            },
-        )
-    }
+class FinderStateUpdatePacket(val finderState: FinderState) : FabricPacket {
+    constructor(buf: PacketByteBuf) : this(FinderState.readFrom(buf))
 
     override fun write(buf: PacketByteBuf) {
-        println("write ${Thread.currentThread().id}")
-        buf.writeInt(clientState.id)
-
-        buf.writeInt(clientState.scanList.size)
-
-        clientState.scanList.forEach {
-            buf.writeIdentifier(Registries.ITEM.getId(it.item))
-            buf.writeInt(it.time)
-        }
-
-        buf.writeInt(clientState.targetList.size)
-
-        clientState.targetList.forEach {
-            buf.writeIdentifier(Registries.ITEM.getId(it.item))
-            buf.writeBlockPos(it.pos)
-        }
+        finderState.writeTo(buf)
     }
 
     override fun getType(): PacketType<*> {

@@ -5,7 +5,7 @@ import hellozyemlya.common.pushPop
 import hellozyemlya.resourcefinder.MOD_NAMESPACE
 import hellozyemlya.resourcefinder.ResourceFinder
 import hellozyemlya.resourcefinder.ResourceFinderTexts
-import hellozyemlya.resourcefinder.items.state.ClientFinderState
+import hellozyemlya.resourcefinder.items.state.FinderState
 import hellozyemlya.resourcefinder.items.state.network.FinderStateRequestPacket
 import hellozyemlya.resourcefinder.items.state.network.FinderStateUpdatePacket
 import hellozyemlya.resourcefinder.registry.ResourceRegistry
@@ -50,7 +50,7 @@ class FinderItemClientSide : ItemClientSide<FinderItem>(ResourceFinder.RESOURCE_
     private val INDICATOR_ITEM_ID = Identifier(MOD_NAMESPACE, "resource_finder_compass_indicator")
     private val INDICATOR_MODEL_ID = ModelIdentifier(INDICATOR_ITEM_ID, "inventory")
 
-    private val idToState: MutableMap<Int, ClientFinderState> = HashMap()
+    private val idToState: MutableMap<Int, FinderState> = HashMap()
 
 
     private var quadColorOverride: Int = -1
@@ -91,9 +91,9 @@ class FinderItemClientSide : ItemClientSide<FinderItem>(ResourceFinder.RESOURCE_
         var botIdx = -1
 
         withState(stack) { state ->
-            state.targetList.forEachIndexed { idx, targetRecord ->
-                quadColorOverride = ResourceRegistry.INSTANCE.getByGroup(targetRecord.item).color
-                val blockPost = targetRecord.pos
+            state.targets.entries.forEachIndexed { idx, targetEntry ->
+                quadColorOverride = ResourceRegistry.INSTANCE.getByGroup(targetEntry.key).color
+                val blockPost = targetEntry.value
                 matrices.pushPop {
                     matrices.translate(0f, (idx * 0.01f), 0f)
                     matrices.multiply(
@@ -163,8 +163,8 @@ class FinderItemClientSide : ItemClientSide<FinderItem>(ResourceFinder.RESOURCE_
         renderer: ItemRenderer
     ) {
         withState(stack) { state ->
-            state.scanList.forEachIndexed { idx, scanRecord ->
-                quadColorOverride = ResourceRegistry.INSTANCE.getByGroup(scanRecord.item).color
+            state.scanList.entries.forEachIndexed { idx, scanEntry ->
+                quadColorOverride = ResourceRegistry.INSTANCE.getByGroup(scanEntry.key).color
                 matrices.push()
                 matrices.translate(0f, (idx * 0.01f), 0f)
                 matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(25f * idx))
@@ -263,10 +263,10 @@ class FinderItemClientSide : ItemClientSide<FinderItem>(ResourceFinder.RESOURCE_
     override fun appendTooltip(stack: ItemStack?, world: World?, tooltip: MutableList<Text>?, context: TooltipContext?) {
         if(stack != null && tooltip != null) {
             withState(stack) {
-                it.scanList.forEach { scanRecord ->
+                it.scanList.entries.forEach { scanEntry ->
                     val blockName = Texts.setStyleIfAbsent(
-                        scanRecord.item.name.copyContentOnly(),
-                        Style.EMPTY.withColor(TextColor.fromRgb(ResourceRegistry.INSTANCE.getByGroup(scanRecord.item).color))
+                        scanEntry.key.name.copyContentOnly(),
+                        Style.EMPTY.withColor(TextColor.fromRgb(ResourceRegistry.INSTANCE.getByGroup(scanEntry.key).color))
                     )
 
                     tooltip.add(
@@ -275,7 +275,7 @@ class FinderItemClientSide : ItemClientSide<FinderItem>(ResourceFinder.RESOURCE_
                                 ResourceFinderTexts.SCAN_FOR,
                                 blockName,
                                 ResourceFinderTexts.SCAN_JOIN,
-                                Text.of(StringHelper.formatTicks(scanRecord.time))
+                                Text.of(StringHelper.formatTicks(scanEntry.value))
                             ), Text.of(" ")
                         )
                     )
@@ -284,7 +284,7 @@ class FinderItemClientSide : ItemClientSide<FinderItem>(ResourceFinder.RESOURCE_
         }
     }
 
-    fun withState(stack: ItemStack, block: (state: ClientFinderState) -> Unit) {
+    fun withState(stack: ItemStack, block: (state: FinderState) -> Unit) {
         if (stack.hasNbt() && stack.orCreateNbt.contains("finder_id")) {
             val id = stack.orCreateNbt.getInt("finder_id")
             val state = idToState[id]
@@ -314,7 +314,7 @@ class FinderItemClientSide : ItemClientSide<FinderItem>(ResourceFinder.RESOURCE_
         BuiltinItemRendererRegistry.INSTANCE.register(ResourceFinder.RESOURCE_FINDER_ITEM, ::renderCompass)
 
         ClientPlayNetworking.registerGlobalReceiver(FinderStateUpdatePacket.PACKET_TYPE) { packet: FinderStateUpdatePacket, _: ClientPlayerEntity, _: PacketSender ->
-            val state = packet.clientState
+            val state = packet.finderState
             idToState[state.id] = state
         }
     }
