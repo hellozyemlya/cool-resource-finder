@@ -6,9 +6,11 @@ import hellozyemlya.resourcefinder.registry.ResourceRegistry
 import hellozyemlya.serialization.annotations.McSerialize
 import hellozyemlya.serialization.annotations.NbtIgnore
 import hellozyemlya.serialization.annotations.PersistentStateArg
+import net.fabricmc.fabric.api.networking.v1.PlayerLookup
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking
 import net.minecraft.item.Item
 import net.minecraft.server.network.ServerPlayerEntity
+import net.minecraft.server.world.ServerWorld
 import net.minecraft.util.math.BlockPos
 import net.minecraft.world.PersistentState
 
@@ -58,7 +60,13 @@ abstract class PersistentFinderState : PersistentState(), FinderState {
             }
 
             markDirty()
-            ServerPlayNetworking.send(entity, FinderStateUpdatePacket(this))
+
+            val packet = FinderStateUpdatePacket(this)
+
+            // all nearby players must get proper state for rendering
+            for (player in PlayerLookup.tracking(entity.world as ServerWorld, entity.blockPos)) {
+                ServerPlayNetworking.send(player, packet)
+            }
         } else if (isActive) {
             // todo send deactivation packet
         }
