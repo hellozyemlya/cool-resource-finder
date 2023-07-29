@@ -1,26 +1,32 @@
-package hellozyemlya.resourcefinder.items.server.state
+package hellozyemlya.resourcefinder.items.state
 
-import hellozyemlya.common.compound
-import hellozyemlya.common.compoundList
-import hellozyemlya.common.int
-import hellozyemlya.common.item
-import hellozyemlya.resourcefinder.items.state.ClientFinderState
-import hellozyemlya.resourcefinder.items.state.ClientScanRecord
-import hellozyemlya.resourcefinder.items.state.ClientTargetRecord
 import hellozyemlya.resourcefinder.items.state.network.FinderStateUpdatePacket
 import hellozyemlya.resourcefinder.registry.ResourceEntry
 import hellozyemlya.resourcefinder.registry.ResourceRegistry
+import hellozyemlya.serialization.annotations.McSerialize
+import hellozyemlya.serialization.annotations.NbtIgnore
+import hellozyemlya.serialization.annotations.PersistentStateArg
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking
 import net.minecraft.item.Item
-import net.minecraft.nbt.NbtCompound
 import net.minecraft.server.network.ServerPlayerEntity
 import net.minecraft.util.math.BlockPos
 import net.minecraft.world.PersistentState
 
-class FinderState(private val id: Int) : PersistentState() {
-    val scanList: MutableMap<Item, Int> = HashMap()
-    private val targets: MutableMap<Item, BlockPos> = HashMap()
 
+@McSerialize
+interface FinderState {
+    @PersistentStateArg
+    val id: Int
+    val scanList: MutableMap<Item, Int>
+
+    @NbtIgnore
+    val targets: MutableMap<Item, BlockPos>
+
+    companion object
+}
+
+@McSerialize
+abstract class PersistentFinderState : PersistentState(), FinderState {
     private var isActive: Boolean = false
 
     fun inventoryTick(entity: ServerPlayerEntity, active: Boolean) {
@@ -44,13 +50,13 @@ class FinderState(private val id: Int) : PersistentState() {
                     val resourceRecord = ResourceRegistry.INSTANCE.getByGroup(it.key)
                     val posCandidate = resourceRecord.findClosest(16, entity.blockPos, entity.world)
                     if (posCandidate.isPresent) {
-                        targets[it.key] =  posCandidate.get()
+                        targets[it.key] = posCandidate.get()
                     }
                 }
             }
 
             markDirty()
-
+            println("state ${Thread.currentThread().id}")
             ServerPlayNetworking.send(entity, FinderStateUpdatePacket(this))
         } else if (isActive) {
             // todo send deactivation packet
@@ -64,24 +70,6 @@ class FinderState(private val id: Int) : PersistentState() {
         markDirty()
     }
 
-    override fun writeNbt(nbt: NbtCompound): NbtCompound {
-        nbt.run {
-            int("id", id)
-
-            if (scanList.isNotEmpty()) {
-                compoundList("scan_list") {
-                    scanList.forEach {
-                        compound {
-                            item("item", it.key)
-                            int("time", it.value)
-                        }
-                    }
-                }
-            }
-        }
-        return nbt
-    }
-
     fun toClient(): ClientFinderState {
         return ClientFinderState(
             id,
@@ -90,15 +78,5 @@ class FinderState(private val id: Int) : PersistentState() {
         )
     }
 
-    companion object {
-        fun fromNbt(nbt: NbtCompound): FinderState {
-            val result = FinderState(nbt.int("id"))
-
-            nbt.compoundList("scan_list").forEach {
-                result.scanList[it.item("item")] = it.int("time")
-            }
-
-            return result
-        }
-    }
+    companion object
 }

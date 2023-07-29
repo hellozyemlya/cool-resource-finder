@@ -1,7 +1,7 @@
 package hellozyemlya.resourcefinder.items.state.network
 
 import hellozyemlya.resourcefinder.MOD_NAMESPACE
-import hellozyemlya.resourcefinder.items.server.state.FinderState
+import hellozyemlya.resourcefinder.items.state.PersistentFinderState
 import hellozyemlya.resourcefinder.items.state.ClientFinderState
 import hellozyemlya.resourcefinder.items.state.ClientScanRecord
 import hellozyemlya.resourcefinder.items.state.ClientTargetRecord
@@ -14,7 +14,7 @@ import net.minecraft.util.Identifier
 class FinderStateUpdatePacket : FabricPacket {
     public val clientState: ClientFinderState
 
-    constructor(state: FinderState) {
+    constructor(state: PersistentFinderState) {
         clientState = state.toClient()
     }
 
@@ -30,6 +30,7 @@ class FinderStateUpdatePacket : FabricPacket {
     }
 
     override fun write(buf: PacketByteBuf) {
+        println("write ${Thread.currentThread().id}")
         buf.writeInt(clientState.id)
 
         buf.writeInt(clientState.scanList.size)

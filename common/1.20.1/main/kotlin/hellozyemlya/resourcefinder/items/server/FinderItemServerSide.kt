@@ -2,10 +2,12 @@ package hellozyemlya.resourcefinder.items.server
 
 import hellozyemlya.common.items.ItemServerSide
 import hellozyemlya.resourcefinder.items.FinderItem
-import hellozyemlya.resourcefinder.items.server.state.FinderIdAllocator
-import hellozyemlya.resourcefinder.items.server.state.FinderState
+import hellozyemlya.resourcefinder.items.state.FinderIdAllocator
+import hellozyemlya.resourcefinder.items.state.PersistentFinderState
 import hellozyemlya.resourcefinder.items.state.network.FinderStateRequestPacket
 import hellozyemlya.resourcefinder.items.state.network.FinderStateUpdatePacket
+import hellozyemlya.serialization.generated.getFinderIdAllocatorOrCreate
+import hellozyemlya.serialization.generated.getPersistentFinderStateOrCreate
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
 import net.fabricmc.fabric.api.networking.v1.PacketSender
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking
@@ -38,15 +40,15 @@ class FinderItemServerSide(item: FinderItem) : ItemServerSide<FinderItem>(item) 
         stack.orCreateNbt.putInt("finder_id", id)
     }
 
-    fun getState(stack: ItemStack): FinderState {
+    fun getState(stack: ItemStack): PersistentFinderState {
         return getState(getFinderId(stack))
     }
 
-    fun getState(id: Int): FinderState {
+    fun getState(id: Int): PersistentFinderState {
         return server!!
             .getWorld(World.OVERWORLD)!!
             .persistentStateManager
-            .getOrCreate(FinderState::fromNbt, { FinderState(id) }, "resource_finder$id")
+            .getPersistentFinderStateOrCreate("resource_finder$id", id)
     }
 
     //    @Environment(EnvType.SERVER)
@@ -66,7 +68,7 @@ class FinderItemServerSide(item: FinderItem) : ItemServerSide<FinderItem>(item) 
         return server!!
             .getWorld(World.OVERWORLD)!!
             .persistentStateManager
-            .getOrCreate(FinderIdAllocator::fromNbt, ::FinderIdAllocator, "finder_id_map")
+            .getFinderIdAllocatorOrCreate("finder_id_allocator")
             .allocateId()
     }
 }
