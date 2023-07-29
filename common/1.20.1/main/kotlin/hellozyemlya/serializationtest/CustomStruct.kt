@@ -1,6 +1,8 @@
 package hellozyemlya.serializationtest
 
 import hellozyemlya.serialization.annotations.McSerialize
+import hellozyemlya.serialization.annotations.NbtIgnore
+import hellozyemlya.serialization.annotations.PacketIgnore
 import hellozyemlya.serialization.annotations.PersistentStateArg
 import net.minecraft.item.Item
 import net.minecraft.util.math.BlockPos
@@ -65,3 +67,17 @@ abstract class PersistentStateExample(@PersistentStateArg public val id: Int) : 
     companion object
 }
 
+
+@McSerialize
+abstract class WithIgnoredFields(@PersistentStateArg public val id: Int) : PersistentState() {
+    @NbtIgnore
+    public abstract var nbtIgnored: BlockPos
+
+    @PacketIgnore
+    public abstract var packetIgnored: Item
+
+    public val publicIgnoredMap: MutableMap<Int, Int> = HashMap()
+    private val privateIgnoredMap: MutableMap<Int, Int> = HashMap()
+
+    companion object
+}

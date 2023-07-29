@@ -7,7 +7,6 @@ import com.google.devtools.ksp.isPublic
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.*
-import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.ParameterSpec
 import com.squareup.kotlinpoet.TypeName
@@ -465,7 +464,7 @@ class SerializableStructListAccessGenerator(
         get() = 0
 
     override fun match(sourceType: KSType): Boolean {
-        if(sourceType.declaration == listDecl) {
+        if (sourceType.declaration == listDecl) {
             val argType = sourceType.arguments[0].type!!.resolve()
             return generatedStructs.singleOrNull { it.baseType == argType } != null
         }
@@ -548,8 +547,91 @@ class GenericListAccessGenerator(
     }
 }
 
+fun KSClassDeclaration.getPropDeclFromCtorArg(arg: KSValueParameter): KSPropertyDeclaration {
+    val parent = arg.parent
+    if ((arg.isVal || arg.isVar) && parent is KSFunctionDeclaration && parent.isConstructor()) {
+        val funcParent = parent.parent
+        if(funcParent is KSClassDeclaration) {
+            return funcParent.getAllProperties().single { it.simpleName == arg.name }
+        }
+    }
+
+    throw IllegalArgumentException("not a KSProperty parameter")
+}
+
+class GenPropertyInfo(public val decl: KSPropertyDeclaration, val ctorParam: Pair<Int, KSValueParameter>? = null) {
+    val isNbtIgnore: Boolean by lazy {
+        decl.annotations.firstOrNull { it.shortName.asString() == "NbtIgnore" } != null
+    }
+    val isPacketIgnore: Boolean by lazy {
+        decl.annotations.firstOrNull { it.shortName.asString() == "PacketIgnore" } != null
+    }
+
+    val isPersistentSateArg: Boolean by lazy {
+        decl.annotations.firstOrNull { it.shortName.asString() == "PersistentStateArg" } != null
+    }
+
+    val isMutable: Boolean = decl.isMutable
+
+    val type: KSType by lazy {
+        decl.type.resolve()
+    }
+
+    val typeName: TypeName by lazy {
+        type.toTypeName()
+    }
+
+    val name: String by lazy {
+        decl.simpleName.asString()
+    }
+
+    fun getParameterSpec(rename: String? = null): ParameterSpec {
+        return ParameterSpec(rename ?: name, typeName)
+    }
+}
 
 class ClassGenerationInfo(public val classDecl: KSClassDeclaration, val persistentStateType: KSType) {
+    val superClsCtorProps: List<GenPropertyInfo> by lazy {
+        if (classDecl.classKind == ClassKind.CLASS && classDecl.isAbstract()) {
+            classDecl.singleCtor().parameters.mapIndexed { idx, param ->
+                GenPropertyInfo(classDecl.getPropDeclFromCtorArg(param), idx to param)
+            }
+        } else {
+            emptyList()
+        }
+    }
+
+    val propsToImplement: List<GenPropertyInfo> by lazy {
+        classDecl.getAllProperties().filter { it.isAbstract() && it.isPublic() }.map { GenPropertyInfo(it) }.toList()
+    }
+
+    val allProperties: List<GenPropertyInfo> by lazy {
+        propsToImplement + superClsCtorProps
+    }
+
+    private val implCtorParamSpecToPropInfo = mutableMapOf<ParameterSpec, GenPropertyInfo>()
+    private val superCtorParamSpecs = mutableListOf<ParameterSpec>()
+
+    /**
+     * List of arguments for implementation ctor.
+     */
+    val implCtorArgs: List<ParameterSpec> by lazy {
+        propsToImplement.map { propInfo ->
+            val paramSpec = ParameterSpec(propInfo.name, propInfo.typeName)
+            implCtorParamSpecToPropInfo[paramSpec] = propInfo
+            paramSpec
+        } + superCtorArgs
+    }
+
+    val superCtorArgs: List<ParameterSpec> by lazy {
+        superClsCtorProps.map { propInfo ->
+            val paramSpec = ParameterSpec(propInfo.name, propInfo.typeName)
+            implCtorParamSpecToPropInfo[paramSpec] = propInfo
+            superCtorParamSpecs.add(paramSpec)
+            paramSpec
+        }
+    }
+
     public val isPersistentState: Boolean by lazy {
         classDecl.superTypes.firstOrNull { it.resolve() == persistentStateType } != null
     }
@@ -566,69 +648,74 @@ class ClassGenerationInfo(public val classDecl: KSClassDeclaration, val persiste
         classDecl.toTypeName()
     }
 
-    val implClassName: String by lazy {
-        "${classDecl.simpleName.asString()}Impl"
+    public val baseTypeNameStr: String by lazy {
+        classDecl.simpleName.asString()
     }
 
-    val propsToImplement: List<KSPropertyDeclaration> by lazy {
-        classDecl.getAllProperties().filter { it.isAbstract() && it.isPublic() }.toList()
-    }
-    val implCtorCallArgs: String by lazy {
-        this.ctorArgs.joinToString(", ") { it.name }
+    val implClassNameStr: String by lazy {
+        "${baseTypeNameStr}Impl"
     }
 
-    val baseCtorProps: List<KSPropertyDeclaration> by lazy {
-        if (classDecl.classKind == ClassKind.CLASS && classDecl.isAbstract()) {
-            classDecl.singleCtor().parameters.map { param ->
-                classDecl.getAllProperties().single { it.simpleName == param.name }
-            }
-        } else {
-            emptyList()
-        }
-    }
+//    val propsToImplement: List<KSPropertyDeclaration> by lazy {
+//        classDecl.getAllProperties().filter { it.isAbstract() && it.isPublic() }.toList()
+//    }
 
-    val propertiesToWrite: List<KSPropertyDeclaration> by lazy {
-        baseCtorProps + propsToImplement
-    }
+//    val implCtorCallArgs: String by lazy {
+//        this.ctorArgs.joinToString(", ") { it.name }
+//    }
+
+//    val baseCtorProps: List<KSPropertyDeclaration> by lazy {
+//        if (classDecl.classKind == ClassKind.CLASS && classDecl.isAbstract()) {
+//            classDecl.singleCtor().parameters.map { param ->
+//                classDecl.getAllProperties().single { it.simpleName == param.name }
+//            }
+//        } else {
+//            emptyList()
+//        }
+//    }
+
+//    val propertiesToWrite: List<KSPropertyDeclaration> by lazy {
+//        baseCtorProps + propsToImplement
+//    }
 
     val callSuperCtor: Boolean = classDecl.classKind == ClassKind.CLASS && classDecl.isAbstract()
 
     public val persistentStateArgs: List<ParameterSpec> by lazy {
-        propertiesToWrite.filter { it.annotations.firstOrNull {
-            it.annotationType.resolve().toTypeName() == ClassName("hellozyemlya.serialization.annotations", "PersistentStateArg")
-        } != null
-        }.map { ParameterSpec.builder(it.declShortName, it.type.toTypeName()).build() }
-    }
-
-    val superCtorArgs: List<ParameterSpec> by lazy {
-        if (classDecl.classKind == ClassKind.CLASS && classDecl.isAbstract()) {
-            classDecl.singleCtor().parameters.map {
-                ParameterSpec
-                    .builder(it.name!!.asString(), it.type.toTypeName())
-                    .build()
-            }
-        } else {
-            emptyList()
+        implCtorArgs.filter {
+            val propInfo = implCtorParamSpecToPropInfo[it]!!
+            propInfo.isPersistentSateArg
         }
     }
 
-    val ctorArgs: List<ParameterSpec> by lazy {
-        val abstractCtorClassArgs = if (classDecl.classKind == ClassKind.CLASS && classDecl.isAbstract()) {
-            classDecl.singleCtor().parameters.map {
-                ParameterSpec
-                    .builder(it.name!!.asString(), it.type.toTypeName())
-                    .build()
-            }
-        } else {
-            emptyList()
-        }
+//    val superCtorArgs: List<ParameterSpec> by lazy {
+//        if (classDecl.classKind == ClassKind.CLASS && classDecl.isAbstract()) {
+//            classDecl.singleCtor().parameters.map {
+//                ParameterSpec
+//                    .builder(it.name!!.asString(), it.type.toTypeName())
+//                    .build()
+//            }
+//        } else {
+//            emptyList()
+//        }
+//    }
 
-        abstractCtorClassArgs + propsToImplement.map {
-            ParameterSpec
-                .builder(it.declShortName, it.type.toTypeName())
-                .build()
-        }
-    }
+//    val ctorArgs: List<ParameterSpec> by lazy {
+//        val abstractCtorClassArgs = if (classDecl.classKind == ClassKind.CLASS && classDecl.isAbstract()) {
+//            classDecl.singleCtor().parameters.map {
+//                ParameterSpec
+//                    .builder(it.name!!.asString(), it.type.toTypeName())
+//                    .build()
+//            }
+//        } else {
+//            emptyList()
+//        }
+//
+//        abstractCtorClassArgs + propsToImplement.map {
+//            ParameterSpec
+//                .builder(it.declShortName, it.type.toTypeName())
+//                .build()
+//        }
+//    }
 }
 
 class SerializationContext(private val resolver: Resolver, private val logger: KSPLogger) : AccessStatements {
@@ -727,13 +814,13 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
         }
         // validate PersistentState inheritance
         candidate.superTypes.forEach { baseTypeRef ->
-            if(baseTypeRef.resolve() == PersistentStateType) {
+            if (baseTypeRef.resolve() == PersistentStateType) {
                 val writeNbtMethod = candidate.getAllFunctions().single {
                     it.simpleName.asString() == "writeNbt"
                             && it.returnType!!.resolve().declaration.qualifiedName == NbtCompondType.declaration.qualifiedName
                             && it.parameters.singleOrNull()?.type?.resolve()?.declaration?.qualifiedName == NbtCompondType.declaration.qualifiedName
                 }
-                if(!writeNbtMethod.isAbstract) {
+                if (!writeNbtMethod.isAbstract) {
                     logger.error("writeNbt must not be implemented", writeNbtMethod)
                     isValid = false
                 }
@@ -824,18 +911,25 @@ class SerializationContext(private val resolver: Resolver, private val logger: K
         when {
             type.isMarkedNullable ->
                 add("null")
+
             type == IntType ->
                 add("0")
+
             type == StringType ->
                 add("\"\"")
+
             type == BlockPosType ->
                 add("%T.ORIGIN", MC_BLOCK_POS_TYPE_NAME)
+
             type == ItemType ->
                 add("%T.AIR", MC_ITEMS_TYPE_NAME)
+
             type.declaration == MutableMapDecl ->
                 add("mutableMapOf()")
+
             type.declaration == MutableListDecl ->
                 add("mutableListOf()")
+
             generationInfos.firstOrNull { it.baseType == type } != null ->
                 add("%T.createDefault()", generationInfos.first { it.baseType == type }.companionTypeName)
         }

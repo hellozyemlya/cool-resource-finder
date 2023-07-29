@@ -3,12 +3,9 @@ package hellozyemlya.ksp.serialization
 import com.google.devtools.ksp.processing.*
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
-import com.google.devtools.ksp.symbol.Modifier
 import com.google.devtools.ksp.validate
 import com.squareup.kotlinpoet.*
-import com.squareup.kotlinpoet.ksp.toTypeName
 import com.squareup.kotlinpoet.ksp.writeTo
-import java.util.function.Predicate
 
 val NBT_COMPOUND_TYPE_NAME = ClassName("net.minecraft.nbt", "NbtCompound")
 val NBT_ELEMENT_TYPE_NAME = ClassName("net.minecraft.nbt", "NbtElement")
@@ -67,21 +64,21 @@ class SerializationProcessor(
         file += "package hellozyemlya.serialization.generated\n"
 
         context.generationInfos.forEach {
-            file += "// impl: ${it.implClassName}\n"
-            file += "//     prop write:\n"
-            it.propertiesToWrite.forEach { prop ->
-                file += "//         ${prop.simpleName.asString()}\n"
-            }
-            file += "//     ctor args:\n"
-            it.ctorArgs.forEach { ctorArg ->
-                file += "//         ${ctorArg.name}\n"
-            }
-            if (it.callSuperCtor) {
-                file += "//     super ctor args:\n"
-                it.superCtorArgs.forEach { ctorArg ->
-                    file += "//         ${ctorArg.name}\n"
-                }
-            }
+//            file += "// impl: ${it.implClassName}\n"
+//            file += "//     prop write:\n"
+//            it.propertiesToWrite.forEach { prop ->
+//                file += "//         ${prop.simpleName.asString()}\n"
+//            }
+//            file += "//     ctor args:\n"
+//            it.ctorArgs.forEach { ctorArg ->
+//                file += "//         ${ctorArg.name}\n"
+//            }
+//            if (it.callSuperCtor) {
+//                file += "//     super ctor args:\n"
+//                it.superCtorArgs.forEach { ctorArg ->
+//                    file += "//         ${ctorArg.name}\n"
+//                }
+//            }
 
         }
 
@@ -92,23 +89,23 @@ class SerializationProcessor(
                     context.generationInfos.forEach { genInfo ->
                         // generate implementations
                         addType(
-                            TypeSpec.classBuilder(genInfo.implClassName)
+                            TypeSpec.classBuilder(genInfo.implClassNameStr)
                                 .addSuperinterface(genInfo.baseTypeName)
                                 // implement properties
                                 .apply {
-                                    genInfo.propsToImplement.forEach { propertyDecl ->
-                                        if (genInfo.isPersistentState && propertyDecl.isMutable) {
+                                    genInfo.propsToImplement.forEach { propGenInfo ->
+                                        if (genInfo.isPersistentState && propGenInfo.isMutable) {
                                             addProperty(
                                                 PropertySpec
                                                     .builder(
-                                                        propertyDecl.declShortName,
-                                                        propertyDecl.type.resolve().toTypeName()
+                                                        propGenInfo.name,
+                                                        propGenInfo.typeName
                                                     )
                                                     .addModifiers(KModifier.PUBLIC, KModifier.OVERRIDE)
-                                                    .mutable(propertyDecl.isMutable)
+                                                    .mutable(true)
                                                     .setter(FunSpec
                                                         .setterBuilder()
-                                                        .addParameter("newValue", propertyDecl.type.resolve().toTypeName())
+                                                        .addParameter("newValue", propGenInfo.typeName)
                                                         .addCode(CodeBlock.of("markDirty()\nfield = newValue"))
                                                         .build())
                                                     .build()
@@ -117,11 +114,11 @@ class SerializationProcessor(
                                             addProperty(
                                                 PropertySpec
                                                     .builder(
-                                                        propertyDecl.declShortName,
-                                                        propertyDecl.type.resolve().toTypeName()
+                                                        propGenInfo.name,
+                                                        propGenInfo.typeName
                                                     )
                                                     .addModifiers(KModifier.PUBLIC, KModifier.OVERRIDE)
-                                                    .mutable(propertyDecl.isMutable)
+                                                    .mutable(propGenInfo.isMutable)
                                                     .build()
                                             )
                                         }
@@ -130,7 +127,7 @@ class SerializationProcessor(
                                 // implement ctor
                                 .addFunction(
                                     FunSpec.constructorBuilder()
-                                        .addParameters(genInfo.ctorArgs)
+                                        .addParameters(genInfo.implCtorArgs)
                                         .apply {
                                             if (genInfo.callSuperCtor) {
                                                 callSuperConstructor(genInfo.superCtorArgs.map { CodeBlock.of(it.name) })
@@ -139,7 +136,7 @@ class SerializationProcessor(
                                         .addCode(
                                             CodeBlock.builder().apply {
                                                 genInfo.propsToImplement.forEach {
-                                                    addStatement("this.${it.declShortName} = ${it.declShortName}")
+                                                    addStatement("this.${it.name} = ${it.name}")
                                                 }
                                             }.build()
                                         )
@@ -164,26 +161,27 @@ class SerializationProcessor(
                         if(genInfo.isPersistentState) {
                             // impl creation function
                             addFunction(
-                                FunSpec.builder("getOrCreate")
+                                FunSpec.builder("get${genInfo.baseTypeNameStr}OrCreate")
                                     .receiver(MC_PERSISTENT_STATE_MANAGER)
                                     .addParameter("stateId", STRING_TYPE_NAME)
                                     .addParameters(genInfo.persistentStateArgs)
                                     .returns(genInfo.baseTypeName)
                                     .addCode(
                                         CodeBlock.builder().apply {
-                                            addStatement("val existent: %T? = this.get(${genInfo.companionTypeName}::readFrom, stateId)", genInfo.baseTypeName)
+                                            addStatement("val existent: %T? = this.get(%T::readFrom, stateId)", genInfo.baseTypeName, genInfo.companionTypeName)
                                             beginControlFlow("if (existent != null)")
                                             addStatement("return existent")
                                             nextControlFlow("else")
-                                            add("val newInstance = ${genInfo.implClassName}(\n")
+                                            add("val newInstance = ${genInfo.implClassNameStr}(\n")
                                             withIndent {
-                                                val propIt = genInfo.propertiesToWrite.iterator()
+                                                val propIt = genInfo.allProperties.iterator()
                                                 while (propIt.hasNext()) {
                                                     val prop = propIt.next()
-                                                    if(genInfo.persistentStateArgs.contains { it.name == prop.simpleName.asString()}) {
-                                                        add(prop.simpleName.asString())
+                                                    if(prop.isPersistentSateArg) {
+                                                        // expected arg name and prop name/positions not changed
+                                                        add(prop.name)
                                                     } else {
-                                                        defaultValue(prop.type.resolve())
+                                                        defaultValue(prop.type)
                                                     }
                                                     if (propIt.hasNext()) {
                                                         add(",\n")
@@ -203,11 +201,11 @@ class SerializationProcessor(
                         addFunction(
                             FunSpec.builder("create")
                                 .receiver(genInfo.companionTypeName)
-                                .addParameters(genInfo.ctorArgs)
+                                .addParameters(genInfo.implCtorArgs)
                                 .returns(genInfo.baseTypeName)
                                 .addCode(
                                     CodeBlock.builder().apply {
-                                        addStatement("return ${genInfo.implClassName}(${genInfo.implCtorCallArgs})")
+                                        addStatement("return ${genInfo.implClassNameStr}(${genInfo.implCtorArgs.joinToString(", ") { it.name }})")
                                     }.build()
                                 )
                                 .build()
@@ -220,11 +218,11 @@ class SerializationProcessor(
                                 .addCode(
                                     CodeBlock.builder()
                                         .apply {
-                                            add("return ${genInfo.implClassName}(\n")
+                                            add("return ${genInfo.implClassNameStr}(\n")
                                             withIndent {
-                                                val propIt = genInfo.propertiesToWrite.iterator()
+                                                val propIt = genInfo.allProperties.iterator()
                                                 while (propIt.hasNext()) {
-                                                    defaultValue(propIt.next().type.resolve())
+                                                    defaultValue(propIt.next().type)
                                                     if (propIt.hasNext()) {
                                                         add(",\n")
                                                     }
@@ -244,11 +242,16 @@ class SerializationProcessor(
                                 .addCode(
                                     CodeBlock.builder()
                                         .apply {
-                                            add("return ${genInfo.implClassName}(\n")
+                                            add("return ${genInfo.implClassNameStr}(\n")
                                             withIndent {
-                                                val propIt = genInfo.propertiesToWrite.iterator()
+                                                val propIt = genInfo.allProperties.iterator()
                                                 while (propIt.hasNext()) {
-                                                    nbtReadProperty(propIt.next(), "compound")
+                                                    val propInfo = propIt.next()
+                                                    if(propInfo.isNbtIgnore) {
+                                                        defaultValue(propInfo.type)
+                                                    } else {
+                                                        nbtReadProperty(propInfo.decl, "compound")
+                                                    }
                                                     if (propIt.hasNext()) {
                                                         add(",\n")
                                                     }
@@ -268,11 +271,16 @@ class SerializationProcessor(
                                 .addCode(
                                     CodeBlock.builder()
                                         .apply {
-                                            add("return ${genInfo.implClassName}(\n")
+                                            add("return ${genInfo.implClassNameStr}(\n")
                                             withIndent {
-                                                val propIt = genInfo.propertiesToWrite.iterator()
+                                                val propIt = genInfo.allProperties.iterator()
                                                 while (propIt.hasNext()) {
-                                                    packetReadStmt(propIt.next(), "buf")
+                                                    val propInfo = propIt.next()
+                                                    if(propInfo.isPacketIgnore) {
+                                                        defaultValue(propInfo.type)
+                                                    } else {
+                                                        packetReadStmt(propInfo.decl, "buf")
+                                                    }
                                                     if (propIt.hasNext()) {
                                                         add(",\n")
                                                     }
@@ -290,8 +298,8 @@ class SerializationProcessor(
                                 .addParameter("compound", NBT_COMPOUND_TYPE_NAME)
                                 .addCode(
                                     CodeBlock.builder().apply {
-                                        genInfo.propertiesToWrite.forEach {
-                                            nbtWriteProperty(it, "this", "compound")
+                                        genInfo.allProperties.filter { !it.isNbtIgnore }.forEach {
+                                            nbtWriteProperty(it.decl, "this", "compound")
                                         }
                                     }.build()
                                 )
@@ -304,8 +312,8 @@ class SerializationProcessor(
                                 .addParameter("buf", MC_PACKET_BUF_TYPE_NAME)
                                 .addCode(
                                     CodeBlock.builder().apply {
-                                        genInfo.propertiesToWrite.forEach {
-                                            packetPutStmt(it, "this", "buf")
+                                        genInfo.allProperties.filter { !it.isPacketIgnore }.forEach {
+                                            packetPutStmt(it.decl, "this", "buf")
                                         }
                                     }.build()
                                 )
