@@ -1,19 +1,18 @@
 package hellozyemlya.resourcefinder.items
 
-import hellozyemlya.common.items.BaseSplitItem
+import hellozyemlya.common.items.BaseClientServerAwareItem
 import hellozyemlya.resourcefinder.items.state.FinderState
 import hellozyemlya.serialization.generated.createDefault
 import hellozyemlya.serialization.generated.readFrom
 import hellozyemlya.serialization.generated.writeTo
 import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.item.Item
 import net.minecraft.item.ItemStack
 import net.minecraft.nbt.NbtCompound
 import net.minecraft.util.Hand
 
 const val FINDER_STATE_NBT_KEY = "finder_state"
 const val FINDER_ID_NBT_KEY = "finder_id"
-class FinderItem(settings: Settings) : BaseSplitItem<FinderItem>(settings) {
+class FinderItem(settings: Settings) : BaseClientServerAwareItem<FinderItem>(settings) {
     override fun allowNbtUpdateAnimation(
         player: PlayerEntity?,
         hand: Hand?,

@@ -7,7 +7,7 @@ import net.minecraft.item.ItemStack
 import net.minecraft.text.Text
 import net.minecraft.world.World
 
-abstract class BaseSplitItem<TSelf>(settings: Settings?) : Item(settings) where TSelf : BaseSplitItem<TSelf> {
+abstract class BaseClientServerAwareItem<TSelf>(settings: Settings?) : Item(settings) where TSelf : BaseClientServerAwareItem<TSelf> {
     private var client: ItemClientSide<TSelf>? = null
     private var server: ItemServerSide<TSelf>? = null
 

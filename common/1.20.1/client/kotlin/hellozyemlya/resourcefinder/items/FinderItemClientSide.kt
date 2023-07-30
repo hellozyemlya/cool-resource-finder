@@ -51,8 +51,7 @@ class FinderItemClientSide : ItemClientSide<FinderItem>(ResourceFinder.RESOURCE_
     private val INDICATOR_ITEM_ID = Identifier(MOD_NAMESPACE, "resource_finder_compass_indicator")
     private val INDICATOR_MODEL_ID = ModelIdentifier(INDICATOR_ITEM_ID, "inventory")
 
-    private data class FinderStateHolder(var lastUpdateTick: Long, var finderState: FinderState)
-    private val idToState: MutableMap<Int, FinderStateHolder> = HashMap()
+    private val idToState: MutableMap<Int, FinderState> = HashMap()
 
 
     private var quadColorOverride: Int = -1
@@ -287,22 +286,14 @@ class FinderItemClientSide : ItemClientSide<FinderItem>(ResourceFinder.RESOURCE_
     }
 
     private fun withState(stack: ItemStack, block: (state: FinderState) -> Unit) {
-        val curTime = MinecraftClient.getInstance().world!!.time
         MinecraftClient.getInstance().world!!.time
         if (stack.hasNbt()) {
             val nbt = stack.nbt!!
             if(nbt.contains(FINDER_ID_NBT_KEY)) {
                 val id = nbt.getInt(FINDER_ID_NBT_KEY)
-                val stateHolder = idToState[id]
-                if (stateHolder != null) {
-                    if(curTime - stateHolder.lastUpdateTick > 20) {
-                        // ask for fresh compass state every second
-                        // this is required when finder item is in chest or
-                        // on the ground and ensures players always has fresh
-                        // state of the finder item
-                        ClientPlayNetworking.send(FinderStateRequestPacket(id))
-                    }
-                    block(stateHolder.finderState)
+                val state = idToState[id]
+                if (state != null) {
+                    block(state)
                 } else {
                     block(ResourceFinder.RESOURCE_FINDER_ITEM.getNbtState(stack))
                     ClientPlayNetworking.send(FinderStateRequestPacket(id))
@@ -340,14 +331,7 @@ class FinderItemClientSide : ItemClientSide<FinderItem>(ResourceFinder.RESOURCE_
             val time = MinecraftClient.getInstance().world!!.time
             val newState = packet.finderState
 
-            val stateHolder = idToState.getOrPut(newState.id) {
-                FinderStateHolder(time, newState)
-            }
-
-            stateHolder.apply {
-                lastUpdateTick = time
-                finderState = newState
-            }
+            idToState[newState.id] = newState
         }
     }
 }

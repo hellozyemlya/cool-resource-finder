@@ -35,10 +35,23 @@ class FinderItemServerSide(item: FinderItem) : ItemServerSide<FinderItem>(item) 
         }
 
         ServerPlayNetworking.registerGlobalReceiver(FinderStateRequestPacket.PACKET_TYPE) { request: FinderStateRequestPacket, player: ServerPlayerEntity, _: PacketSender ->
-            val packet = FinderStateUpdatePacket(getPersistentState(request.id))
-            for (nearbyPlayer in PlayerLookup.tracking(player.world as ServerWorld, player.blockPos)) {
-                ServerPlayNetworking.send(nearbyPlayer, packet)
-            }
+            sendFinderState(player, getPersistentState(request.id))
+        }
+    }
+
+    /**
+     * notify all connected players for state update. Notifying all will avoid de-sync of previously cached
+     * state on player side. Example situation - Client1 request state only once and cache it, Client2
+     * modify state far from Client1, put finder in to the chest, Client1 finds that chest and uses stale
+     * cached state to display info. Notifying all clients will avoid this problem
+     */
+    public fun sendFinderState(player: ServerPlayerEntity, state: PersistentFinderState) {
+        val packet = FinderStateUpdatePacket(state)
+
+        ServerPlayNetworking.send(player, packet)
+
+        for (players in PlayerLookup.all((player.world as ServerWorld).server).stream().filter { it != player }) {
+            ServerPlayNetworking.send(players, packet)
         }
     }
 

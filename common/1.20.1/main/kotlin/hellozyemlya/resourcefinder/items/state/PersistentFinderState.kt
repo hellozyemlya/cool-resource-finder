@@ -1,5 +1,7 @@
 package hellozyemlya.resourcefinder.items.state
 
+import hellozyemlya.resourcefinder.ResourceFinder
+import hellozyemlya.resourcefinder.items.server.FinderItemServerSide
 import hellozyemlya.resourcefinder.items.state.network.FinderStateUpdatePacket
 import hellozyemlya.resourcefinder.registry.ResourceEntry
 import hellozyemlya.resourcefinder.registry.ResourceRegistry
@@ -61,12 +63,9 @@ abstract class PersistentFinderState : PersistentState(), FinderState {
 
             markDirty()
 
-            val packet = FinderStateUpdatePacket(this)
-
-            // all nearby players must get proper state for rendering
-            for (player in PlayerLookup.tracking(entity.world as ServerWorld, entity.blockPos)) {
-                ServerPlayNetworking.send(player, packet)
-            }
+            ResourceFinder.RESOURCE_FINDER_ITEM.getServerSide<FinderItemServerSide>()
+                .sendFinderState(entity, this)
+            
         } else if (isActive) {
             // todo send deactivation packet
         }
