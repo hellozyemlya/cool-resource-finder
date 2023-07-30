@@ -10,12 +10,14 @@ import hellozyemlya.resourcefinder.items.state.network.FinderStateUpdatePacket
 import hellozyemlya.serialization.generated.*
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
 import net.fabricmc.fabric.api.networking.v1.PacketSender
+import net.fabricmc.fabric.api.networking.v1.PlayerLookup
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking
 import net.minecraft.entity.Entity
 import net.minecraft.item.ItemStack
 import net.minecraft.nbt.NbtCompound
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.network.ServerPlayerEntity
+import net.minecraft.server.world.ServerWorld
 import net.minecraft.world.PersistentStateManager
 import net.minecraft.world.World
 
@@ -33,7 +35,10 @@ class FinderItemServerSide(item: FinderItem) : ItemServerSide<FinderItem>(item) 
         }
 
         ServerPlayNetworking.registerGlobalReceiver(FinderStateRequestPacket.PACKET_TYPE) { request: FinderStateRequestPacket, player: ServerPlayerEntity, _: PacketSender ->
-            ServerPlayNetworking.send(player, FinderStateUpdatePacket(getPersistentState(request.id)))
+            val packet = FinderStateUpdatePacket(getPersistentState(request.id))
+            for (nearbyPlayer in PlayerLookup.tracking(player.world as ServerWorld, player.blockPos)) {
+                ServerPlayNetworking.send(nearbyPlayer, packet)
+            }
         }
     }
 
