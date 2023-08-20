@@ -286,7 +286,6 @@ class FinderItemClientSide : ItemClientSide<FinderItem>(ResourceFinder.RESOURCE_
     }
 
     private fun withState(stack: ItemStack, block: (state: FinderState) -> Unit) {
-        MinecraftClient.getInstance().world!!.time
         if (stack.hasNbt()) {
             val nbt = stack.nbt!!
             if(nbt.contains(FINDER_ID_NBT_KEY)) {
@@ -328,7 +327,6 @@ class FinderItemClientSide : ItemClientSide<FinderItem>(ResourceFinder.RESOURCE_
 
         // accept state updates from server
         ClientPlayNetworking.registerGlobalReceiver(FinderStateUpdatePacket.PACKET_TYPE) { packet: FinderStateUpdatePacket, _: ClientPlayerEntity, _: PacketSender ->
-            val time = MinecraftClient.getInstance().world!!.time
             val newState = packet.finderState
 
             idToState[newState.id] = newState
