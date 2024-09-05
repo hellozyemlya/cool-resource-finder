@@ -1,9 +1,11 @@
 package hellozyemlya.resourcefinder
 
 import hellozyemlya.common.pushPop
+import hellozyemlya.resourcefinder.items.ResourceFinderCompass
 import hellozyemlya.resourcefinder.items.getScanList
 import hellozyemlya.resourcefinder.items.getTargetList
 import net.fabricmc.api.ClientModInitializer
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents
 import net.fabricmc.fabric.api.client.model.loading.v1.ModelLoadingPlugin
 import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry
 import net.fabricmc.fabric.api.client.rendering.v1.ColorProviderRegistry
@@ -245,5 +247,9 @@ object ResourceFinderClient : ClientModInitializer {
 
         // use custom render function for compass
         BuiltinItemRendererRegistry.INSTANCE.register(ResourceFinder.RESOURCE_FINDER_ITEM, ::renderCompass)
+        // handle network packets
+        ResourceFinderCompass.ALL_CHARGES_PACKET.receiveOnClient { packet, context ->
+
+        }
     }
 }

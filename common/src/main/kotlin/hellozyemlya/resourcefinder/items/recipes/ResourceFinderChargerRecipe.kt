@@ -1,6 +1,7 @@
 package hellozyemlya.resourcefinder.items.recipes
 
 import com.google.common.collect.Streams
+import com.mojang.authlib.minecraft.client.MinecraftClient
 import hellozyemlya.mccompat.RecipeInputInventoryAlias
 import hellozyemlya.resourcefinder.ResourceFinder
 import hellozyemlya.resourcefinder.items.ScanRecord
@@ -12,6 +13,7 @@ import net.minecraft.recipe.RecipeSerializer
 import net.minecraft.recipe.SpecialCraftingRecipe
 import net.minecraft.recipe.book.CraftingRecipeCategory
 import net.minecraft.registry.DynamicRegistryManager
+import net.minecraft.server.MinecraftServer
 import net.minecraft.util.Identifier
 import net.minecraft.util.collection.DefaultedList
 import net.minecraft.world.World

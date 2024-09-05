@@ -1,6 +1,7 @@
 plugins {
     id 'fabric-loom' version '1.3-SNAPSHOT' apply false
     id "org.jetbrains.kotlin.jvm" version "1.9.0" apply false
+    id 'org.jetbrains.kotlin.plugin.serialization' version "1.9.0" apply false
     id "me.modmuss50.mod-publish-plugin" version "0.1.1"
 }
 
@@ -11,6 +12,7 @@ subprojects {
     apply plugin: 'fabric-loom'
     apply plugin: 'maven-publish'
     apply plugin: 'org.jetbrains.kotlin.jvm'
+    apply plugin: 'org.jetbrains.kotlin.plugin.serialization'
     apply plugin: 'me.modmuss50.mod-publish-plugin'
 
     version = project.mod_version
@@ -28,6 +30,16 @@ subprojects {
         // See https://docs.gradle.org/current/userguide/declaring_repositories.html
         // for more information about repositories.
         maven { url = "https://jitpack.io" }
+        exclusiveContent {
+            forRepository {
+                maven {
+                    url "https://cursemaven.com"
+                }
+            }
+            filter {
+                includeGroup "curse.maven"
+            }
+        }
     }
 
     loom {
@@ -194,6 +206,8 @@ subprojects {
         // Fabric API. This is technically optional, but you probably want it anyway.
         modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
         modImplementation "net.fabricmc:fabric-language-kotlin:${project.fabric_kotlin_version}"
+        modImplementation "net.silkmc:silk-network:${project.silkmc_version}"
+        modImplementation "net.silkmc:silk-persistence:${project.silkmc_version}"
     }
 
     publishMods {
@@ -226,6 +240,10 @@ subprojects {
             requires {
                 // fabric-language-kotlin
                 projectId = "Ha28R6CL"
+            }
+            requires {
+                // Silk
+                projectId = "aTaCgKLW"
             }
         }
     }
