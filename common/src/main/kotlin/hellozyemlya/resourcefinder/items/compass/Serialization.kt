@@ -1,20 +1,27 @@
-package hellozyemlya.resourcefinder.items
+package hellozyemlya.resourcefinder.items.compass
 
 import kotlinx.serialization.*
+import kotlinx.serialization.cbor.Cbor
 import kotlinx.serialization.descriptors.*
 import kotlinx.serialization.encoding.CompositeDecoder.Companion.DECODE_DONE
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.encoding.decodeStructure
 import kotlinx.serialization.encoding.encodeStructure
+import kotlinx.serialization.modules.SerializersModule
 import net.minecraft.item.Item
+import net.minecraft.item.ItemStack
 import net.minecraft.registry.Registries
 import net.minecraft.util.math.BlockPos
+import net.silkmc.silk.nbt.serialization.Nbt
+import net.silkmc.silk.nbt.serialization.decodeFromNbtElement
+import net.silkmc.silk.nbt.serialization.encodeToNbtElement
 
 object BlockPosSerializer : KSerializer<BlockPos> {
     private val xDescriptor: SerialDescriptor = PrimitiveSerialDescriptor("x", PrimitiveKind.INT)
     private val yDescriptor: SerialDescriptor = PrimitiveSerialDescriptor("y", PrimitiveKind.INT)
     private val zDescriptor: SerialDescriptor = PrimitiveSerialDescriptor("z", PrimitiveKind.INT)
+
     @OptIn(InternalSerializationApi::class, ExperimentalSerializationApi::class)
     override val descriptor: SerialDescriptor = buildSerialDescriptor(
         "BlockPos", StructureKind.LIST,
@@ -52,8 +59,8 @@ object BlockPosSerializer : KSerializer<BlockPos> {
 
 }
 
-object ItemSerializer : KSerializer<Item> {
-    override val descriptor: SerialDescriptor=  PrimitiveSerialDescriptor("Item", PrimitiveKind.INT)
+object ItemNetworkSerializer : KSerializer<Item> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("Item", PrimitiveKind.INT)
 
     override fun deserialize(decoder: Decoder): Item {
         return Registries.ITEM.get(decoder.decodeInt())
@@ -65,12 +72,20 @@ object ItemSerializer : KSerializer<Item> {
 
 }
 
-@Serializable
-data class CompassScanItem(var lifetimeTicks: Int, @Serializable(with = BlockPosSerializer::class) var pos: BlockPos?)
+val NETWORK_SERIALIZATION_MODULE = SerializersModule {
+    contextual(Item::class, ItemNetworkSerializer)
+    contextual(BlockPos::class, BlockPosSerializer)
+}
 
-@Serializable
-data class CompassData(val scanList: HashMap<@Serializable(with = ItemSerializer::class) Item, CompassScanItem>)
+@OptIn(ExperimentalSerializationApi::class)
+val NETWORK_CBOR = Cbor {
+    serializersModule = NETWORK_SERIALIZATION_MODULE
+}
 
-data class ResourceFinderCompassCache(val instances: HashMap<Int, Int> = hashMapOf(), private var nextId: Int = 0) {
-    fun getNextId(): Int = ++nextId
+public val NBT_SERIALIZATION_MODULE = SerializersModule {
+    contextual(BlockPos::class, BlockPosSerializer)
+}
+
+val NBT_SERIALIZER = Nbt {
+    serializersModule = NBT_SERIALIZATION_MODULE
 }

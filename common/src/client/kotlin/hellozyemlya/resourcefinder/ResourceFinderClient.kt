@@ -1,11 +1,11 @@
 package hellozyemlya.resourcefinder
 
 import hellozyemlya.common.pushPop
-import hellozyemlya.resourcefinder.items.ResourceFinderCompass
+import hellozyemlya.resourcefinder.items.compass.Packets
+import hellozyemlya.resourcefinder.items.compass.ResourceFinderCompassCache
 import hellozyemlya.resourcefinder.items.getScanList
 import hellozyemlya.resourcefinder.items.getTargetList
 import net.fabricmc.api.ClientModInitializer
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents
 import net.fabricmc.fabric.api.client.model.loading.v1.ModelLoadingPlugin
 import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry
 import net.fabricmc.fabric.api.client.rendering.v1.ColorProviderRegistry
@@ -40,6 +40,7 @@ object ResourceFinderClient : ClientModInitializer {
 
     private var quadColorOverride: Int = -1
     private var lastEntity: LivingEntity? = null
+    private var compassCache: ResourceFinderCompassCache = ResourceFinderCompassCache()
 
     private fun getAngleTo(entity: Entity, pos: BlockPos): Double {
         val vec3d = Vec3d.ofCenter(pos)
@@ -63,14 +64,14 @@ object ResourceFinderClient : ClientModInitializer {
     }
 
     private fun renderPositionedArrows(
-            entity: LivingEntity,
-            stack: ItemStack,
-            matrices: MatrixStack,
-            vertexConsumers: VertexConsumerProvider,
-            mode: ModelTransformationMode,
-            light: Int,
-            overlay: Int,
-            renderer: ItemRenderer
+        entity: LivingEntity,
+        stack: ItemStack,
+        matrices: MatrixStack,
+        vertexConsumers: VertexConsumerProvider,
+        mode: ModelTransformationMode,
+        light: Int,
+        overlay: Int,
+        renderer: ItemRenderer
     ) {
         var topIdx = -1
         var botIdx = -1
@@ -80,23 +81,23 @@ object ResourceFinderClient : ClientModInitializer {
             matrices.pushPop {
                 matrices.translate(0f, (idx * 0.01f), 0f)
                 matrices.multiply(
-                        RotationAxis.POSITIVE_Y.rotationDegrees(
-                                getArrowAngle(
-                                        entity,
-                                        blockPost
-                                )
+                    RotationAxis.POSITIVE_Y.rotationDegrees(
+                        getArrowAngle(
+                            entity,
+                            blockPost
                         )
+                    )
                 )
 
                 renderer.renderItem(
-                        stack,
-                        ModelTransformationMode.NONE,
-                        false,
-                        matrices,
-                        vertexConsumers,
-                        light,
-                        overlay,
-                        MinecraftClient.getInstance().bakedModelManager.getModel(ARROW_MODEL_ID)
+                    stack,
+                    ModelTransformationMode.NONE,
+                    false,
+                    matrices,
+                    vertexConsumers,
+                    light,
+                    overlay,
+                    MinecraftClient.getInstance().bakedModelManager.getModel(ARROW_MODEL_ID)
                 )
             }
 
@@ -110,7 +111,7 @@ object ResourceFinderClient : ClientModInitializer {
 
                         entity.blockPos.y < blockPost.y -> {
                             matrices.multiply(
-                                    RotationAxis.POSITIVE_Y.rotation(Math.PI.toFloat())
+                                RotationAxis.POSITIVE_Y.rotation(Math.PI.toFloat())
                             )
                             matrices.translate(0f, 0f, -++botIdx * 0.013f)
                             true
@@ -120,14 +121,14 @@ object ResourceFinderClient : ClientModInitializer {
                     }
                     if (renderIndicator) {
                         renderer.renderItem(
-                                stack,
-                                ModelTransformationMode.NONE,
-                                false,
-                                matrices,
-                                vertexConsumers,
-                                light,
-                                overlay,
-                                MinecraftClient.getInstance().bakedModelManager.getModel(INDICATOR_MODEL_ID)
+                            stack,
+                            ModelTransformationMode.NONE,
+                            false,
+                            matrices,
+                            vertexConsumers,
+                            light,
+                            overlay,
+                            MinecraftClient.getInstance().bakedModelManager.getModel(INDICATOR_MODEL_ID)
                         )
                     }
                 }
@@ -136,12 +137,12 @@ object ResourceFinderClient : ClientModInitializer {
     }
 
     private fun renderArrowsPreview(
-            stack: ItemStack,
-            matrices: MatrixStack,
-            vertexConsumers: VertexConsumerProvider,
-            light: Int,
-            overlay: Int,
-            renderer: ItemRenderer
+        stack: ItemStack,
+        matrices: MatrixStack,
+        vertexConsumers: VertexConsumerProvider,
+        light: Int,
+        overlay: Int,
+        renderer: ItemRenderer
     ) {
         stack.getScanList().forEachIndexed { idx, scanRecord ->
             quadColorOverride = scanRecord.color
@@ -150,20 +151,27 @@ object ResourceFinderClient : ClientModInitializer {
             matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(25f * idx))
             // TODO set color here somehow
             renderer.renderItem(
-                    stack,
-                    ModelTransformationMode.NONE,
-                    false,
-                    matrices,
-                    vertexConsumers,
-                    light,
-                    overlay,
-                    MinecraftClient.getInstance().bakedModelManager.getModel(ARROW_MODEL_ID)
+                stack,
+                ModelTransformationMode.NONE,
+                false,
+                matrices,
+                vertexConsumers,
+                light,
+                overlay,
+                MinecraftClient.getInstance().bakedModelManager.getModel(ARROW_MODEL_ID)
             )
             matrices.pop()
         }
     }
 
-    private fun renderCompass(stack: ItemStack, mode: ModelTransformationMode, matrices: MatrixStack, vertexConsumers: VertexConsumerProvider, light: Int, overlay: Int) {
+    private fun renderCompass(
+        stack: ItemStack,
+        mode: ModelTransformationMode,
+        matrices: MatrixStack,
+        vertexConsumers: VertexConsumerProvider,
+        light: Int,
+        overlay: Int
+    ) {
         val renderer = MinecraftClient.getInstance().itemRenderer
 
         // reset quad color
@@ -174,28 +182,28 @@ object ResourceFinderClient : ClientModInitializer {
 
         // render compass base model
         renderer.renderItem(
-                stack,
-                ModelTransformationMode.NONE,
-                false,
-                matrices,
-                vertexConsumers,
-                light,
-                overlay,
-                MinecraftClient.getInstance().bakedModelManager.getModel(BASE_MODEL_ID)
+            stack,
+            ModelTransformationMode.NONE,
+            false,
+            matrices,
+            vertexConsumers,
+            light,
+            overlay,
+            MinecraftClient.getInstance().bakedModelManager.getModel(BASE_MODEL_ID)
         )
 
         val entity = lastEntity
 
         if (renderPositionedArrows(mode, entity, stack)) {
             renderPositionedArrows(
-                    entity,
-                    stack,
-                    matrices,
-                    vertexConsumers,
-                    mode,
-                    light,
-                    overlay,
-                    renderer
+                entity,
+                stack,
+                matrices,
+                vertexConsumers,
+                mode,
+                light,
+                overlay,
+                renderer
             )
         } else {
             renderArrowsPreview(stack, matrices, vertexConsumers, light, overlay, renderer)
@@ -203,7 +211,11 @@ object ResourceFinderClient : ClientModInitializer {
     }
 
     @OptIn(ExperimentalContracts::class)
-    private fun renderPositionedArrows(mode: ModelTransformationMode, entity: LivingEntity?, stack: ItemStack): Boolean {
+    private fun renderPositionedArrows(
+        mode: ModelTransformationMode,
+        entity: LivingEntity?,
+        stack: ItemStack
+    ): Boolean {
         contract {
             returns(true) implies (entity != null)
         }
@@ -234,22 +246,41 @@ object ResourceFinderClient : ClientModInitializer {
         }
 
         // capture LivingEntity
-        ModelPredicateProviderRegistry.register(ResourceFinder.RESOURCE_FINDER_ITEM, Identifier("hack")) { _: ItemStack, _: ClientWorld?, livingEntity: LivingEntity?, _: Int ->
+        ModelPredicateProviderRegistry.register(
+            ResourceFinder.RESOURCE_FINDER_ITEM,
+            Identifier("hack")
+        ) { _: ItemStack, _: ClientWorld?, livingEntity: LivingEntity?, _: Int ->
             lastEntity = livingEntity
             0f
         }
 
         // override quad colors
         ColorProviderRegistry.ITEM.register(
-                { _: ItemStack, _: Int -> quadColorOverride },
-                ResourceFinder.RESOURCE_FINDER_ITEM
+            { _: ItemStack, _: Int -> quadColorOverride },
+            ResourceFinder.RESOURCE_FINDER_ITEM
         )
 
         // use custom render function for compass
         BuiltinItemRendererRegistry.INSTANCE.register(ResourceFinder.RESOURCE_FINDER_ITEM, ::renderCompass)
         // handle network packets
-        ResourceFinderCompass.ALL_CHARGES_PACKET.receiveOnClient { packet, context ->
-
+        Packets.CACHE_PACKET.receiveOnClient { packet, context ->
+            compassCache = packet
+        }
+        Packets.SCAN_ITEM_CHANGE_PACKET.receiveOnClient { packet, context ->
+            packet.forEach {
+                val compassData = compassCache.instances[it.compassId]
+                if (compassData != null) {
+                    val scanItem = compassData.scanList[it.chargeItem]
+                    if (scanItem != null) {
+                        if (it.ticks == 0) {
+                            compassData.scanList.remove(it.chargeItem)
+                        } else {
+                            scanItem.lifetimeTicks = it.ticks
+                            scanItem.target = it.target
+                        }
+                    }
+                }
+            }
         }
     }
 }

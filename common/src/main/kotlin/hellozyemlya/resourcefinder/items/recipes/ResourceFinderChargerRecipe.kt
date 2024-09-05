@@ -1,11 +1,10 @@
 package hellozyemlya.resourcefinder.items.recipes
 
 import com.google.common.collect.Streams
-import com.mojang.authlib.minecraft.client.MinecraftClient
 import hellozyemlya.mccompat.RecipeInputInventoryAlias
 import hellozyemlya.resourcefinder.ResourceFinder
-import hellozyemlya.resourcefinder.items.ScanRecord
-import hellozyemlya.resourcefinder.items.getScanList
+import hellozyemlya.resourcefinder.ResourceFinder.RESOURCE_FINDER_ITEM
+import hellozyemlya.resourcefinder.items.compass.CompassScanItem
 import hellozyemlya.resourcefinder.registry.ResourceRegistry
 import net.minecraft.inventory.Inventory
 import net.minecraft.item.ItemStack
@@ -13,7 +12,6 @@ import net.minecraft.recipe.RecipeSerializer
 import net.minecraft.recipe.SpecialCraftingRecipe
 import net.minecraft.recipe.book.CraftingRecipeCategory
 import net.minecraft.registry.DynamicRegistryManager
-import net.minecraft.server.MinecraftServer
 import net.minecraft.util.Identifier
 import net.minecraft.util.collection.DefaultedList
 import net.minecraft.world.World
@@ -22,8 +20,8 @@ import java.util.stream.Collectors
 const val MAX_SCAN_CHARGES: Int = 5
 
 class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategory) : SpecialCraftingRecipe(
-        id,
-        category
+    id,
+    category
 ) {
     private fun getRecipeItems(inventory: Inventory): Pair<ItemStack, ArrayList<ItemStack>> {
         var compass: ItemStack? = null
@@ -66,11 +64,12 @@ class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategor
         }
 
         if (compassStack != null && charges.size > 0) {
+
             val estimatedChargesCount =
-                    Streams.concat(
-                            compassStack.getScanList().stream().map { it.key },
-                            charges.stream().map { ResourceRegistry.INSTANCE.getByChargingItem(it.item).group }
-                    ).collect(Collectors.toSet()).size
+                Streams.concat(
+                    RESOURCE_FINDER_ITEM.getCompassData(compassStack).second.scanList.entries.stream().map { it.key },
+                    charges.stream().map { ResourceRegistry.INSTANCE.getByChargingItem(it.item).group }
+                ).collect(Collectors.toSet()).size
             return estimatedChargesCount <= MAX_SCAN_CHARGES
         }
 
@@ -82,18 +81,19 @@ class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategor
 
         val result = compass.copy()
 
-        val scanList = result.getScanList()
+        val scanList = RESOURCE_FINDER_ITEM.getCompassData(result).second.scanList
 
         charges.forEach { chargeStack ->
             val chargeItem = chargeStack.item
             val resourceEntry = ResourceRegistry.INSTANCE.getByChargingItem(chargeItem)
 
             val chargeValue = resourceEntry.getChargeTicks(chargeItem) * chargeStack.count
-            val existingEntry = result.getScanList().firstOrNull { it.key == resourceEntry.group }
+            val existingEntry = scanList.entries.firstOrNull { it.key == resourceEntry.group }
             if (existingEntry != null) {
-                existingEntry.lifetime += chargeValue
+                existingEntry.value.lifetimeTicks += chargeValue
             } else {
                 scanList.add(ScanRecord(resourceEntry.group, resourceEntry.color, chargeValue))
+                scanList[resourceEntry.group] = CompassScanItem(chargeValue)
             }
         }
 
