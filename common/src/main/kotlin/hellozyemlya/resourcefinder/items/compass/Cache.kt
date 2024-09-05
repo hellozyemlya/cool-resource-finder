@@ -7,7 +7,7 @@ import net.minecraft.util.math.BlockPos
 
 
 @Serializable
-data class CompassScanItem(var lifetimeTicks: Int, @Contextual var target: BlockPos? = null)
+data class CompassScanItem(var lifetimeTicks: Int, @Contextual var target: BlockPos? = null, var color: Int = 0)
 
 @Serializable
 data class CompassData(var scanTimeoutTicks: Int = 0, val scanList: HashMap<@Contextual Item, CompassScanItem> = hashMapOf())

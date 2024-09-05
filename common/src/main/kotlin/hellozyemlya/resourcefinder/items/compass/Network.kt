@@ -14,7 +14,8 @@ data class ScanItemChange(
     val compassId: Int,
     @Contextual val chargeItem: Item,
     val ticks: Int,
-    @Contextual val target: BlockPos? = null
+    @Contextual val target: BlockPos? = null,
+    val color: Int = 0
 )
 
 @OptIn(ExperimentalSerializationApi::class)

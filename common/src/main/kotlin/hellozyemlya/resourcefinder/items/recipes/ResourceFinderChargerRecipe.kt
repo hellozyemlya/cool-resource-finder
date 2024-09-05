@@ -67,7 +67,7 @@ class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategor
 
             val estimatedChargesCount =
                 Streams.concat(
-                    RESOURCE_FINDER_ITEM.getCompassData(compassStack).second.scanList.entries.stream().map { it.key },
+                    RESOURCE_FINDER_ITEM.getServerCompassData(compassStack).second.scanList.entries.stream().map { it.key },
                     charges.stream().map { ResourceRegistry.INSTANCE.getByChargingItem(it.item).group }
                 ).collect(Collectors.toSet()).size
             return estimatedChargesCount <= MAX_SCAN_CHARGES
@@ -81,7 +81,7 @@ class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategor
 
         val result = compass.copy()
 
-        val scanList = RESOURCE_FINDER_ITEM.getCompassData(result).second.scanList
+        val scanList = RESOURCE_FINDER_ITEM.getServerCompassData(result).second.scanList
 
         charges.forEach { chargeStack ->
             val chargeItem = chargeStack.item
@@ -92,8 +92,7 @@ class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategor
             if (existingEntry != null) {
                 existingEntry.value.lifetimeTicks += chargeValue
             } else {
-                scanList.add(ScanRecord(resourceEntry.group, resourceEntry.color, chargeValue))
-                scanList[resourceEntry.group] = CompassScanItem(chargeValue)
+                scanList[resourceEntry.group] = CompassScanItem(chargeValue, color = resourceEntry.color)
             }
         }
 

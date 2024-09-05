@@ -12,6 +12,7 @@ import net.minecraft.entity.Entity
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.item.Item
 import net.minecraft.item.ItemStack
+import net.minecraft.nbt.NbtElement
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.network.ServerPlayNetworkHandler
 import net.minecraft.text.Text
@@ -20,7 +21,7 @@ import net.minecraft.util.Identifier
 import net.minecraft.world.World
 import net.silkmc.silk.nbt.serialization.decodeFromNbtElement
 import net.silkmc.silk.nbt.serialization.encodeToNbtElement
-import net.silkmc.silk.persistence.compoundKey
+import net.silkmc.silk.persistence.customCompoundKey
 import net.silkmc.silk.persistence.persistentCompound
 import kotlin.collections.component1
 import kotlin.collections.component2
@@ -29,21 +30,52 @@ import kotlin.jvm.optionals.getOrNull
 
 @Serializable
 data class CompassNbtV0(
+    var compassId: Int = 0,
     var data: CompassData? = null,
-    var compassId: Int = 0
 )
 
 private const val COMPASS_NBT_KEY = "data_v0"
+private val COMPASS_WORLD_CACHE_ID = Identifier(MOD_NAMESPACE, "cache")
 
 class ResourceFinderCompass(settings: Settings) : Item(settings) {
     companion object {
         const val DEFAULT_SCAN_TIMEOUT = 10
-        val CACHE_KEY = compoundKey<ResourceFinderCompassCache>(Identifier(MOD_NAMESPACE, "cache"))
+        val COMPASS_WORLD_CACHE_COMPOUND_KEY = customCompoundKey<ResourceFinderCompassCache>(
+            COMPASS_WORLD_CACHE_ID,
+            { value: ResourceFinderCompassCache -> NBT_SERIALIZER.encodeToNbtElement(value) },
+            { nbtElement: NbtElement -> NBT_SERIALIZER.decodeFromNbtElement(nbtElement) }
+        )
     }
 
-    private var cache: ResourceFinderCompassCache = ResourceFinderCompassCache()
+    private var serverCompassCache: ResourceFinderCompassCache = ResourceFinderCompassCache()
 
-    public fun getCompassData(stack: ItemStack): Pair<Int, CompassData> {
+    fun getClientCompassData(stack: ItemStack, clientCache: ResourceFinderCompassCache): CompassData? {
+        val compassNbt: CompassNbtV0? = if (stack.hasNbt() && stack.nbt!!.contains(COMPASS_NBT_KEY)) {
+            NBT_SERIALIZER.decodeFromNbtElement(stack.nbt!![COMPASS_NBT_KEY]!!)
+        } else {
+            null
+        }
+        return if (compassNbt != null) {
+            val compassId = compassNbt.compassId
+            if (compassId != 0) {
+                if (clientCache.instances.contains(compassId)) {
+                    clientCache.instances[compassId]
+                } else {
+                    compassNbt.data
+                }
+            } else {
+                null
+            }
+        } else {
+            null
+        }
+    }
+
+    /**
+     * Returns server side compass id and data for given item stack. Will create it if that is new item without
+     * any data existing.
+     */
+    fun getServerCompassData(stack: ItemStack): Pair<Int, CompassData> {
         var modified = false
         val nbtTag = stack.orCreateNbt
         val compassNbt = if (nbtTag.contains(COMPASS_NBT_KEY)) {
@@ -53,18 +85,18 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
             CompassNbtV0()
         }.apply {
             if (compassId == 0) {
-                compassId = cache.getNextId()
+                compassId = serverCompassCache.getNextId()
                 modified = true
             }
         }
         val compassId = compassNbt.compassId
 
-        val compassData = if (cache.instances.contains(compassId)) {
-            cache.instances[compassId]!!
+        val compassData = if (serverCompassCache.instances.contains(compassId)) {
+            serverCompassCache.instances[compassId]!!
         } else {
             val possibleData = compassNbt.data
             if (possibleData != null) {
-                cache.instances[compassId] = possibleData
+                serverCompassCache.instances[compassId] = possibleData
                 compassNbt.data = null
                 modified = true
                 possibleData
@@ -74,13 +106,9 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
         }
 
         if (modified) {
-            putCompassNbt(stack, compassNbt)
+            nbtTag.put(COMPASS_NBT_KEY, NBT_SERIALIZER.encodeToNbtElement(compassNbt))
         }
         return Pair(compassId, compassData)
-    }
-
-    private fun putCompassNbt(stack: ItemStack, compassNbt: CompassNbtV0) {
-        stack.orCreateNbt.put(COMPASS_NBT_KEY, NBT_SERIALIZER.encodeToNbtElement(compassNbt))
     }
 
     init {
@@ -88,9 +116,9 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
         ServerLifecycleEvents.SERVER_STARTED.register(ServerLifecycleEvents.ServerStarted {
             val overWorld = it.getWorld(World.OVERWORLD)
             if (overWorld != null) {
-                val possibleCache = overWorld.persistentCompound[CACHE_KEY]
+                val possibleCache = overWorld.persistentCompound[COMPASS_WORLD_CACHE_COMPOUND_KEY]
                 if (possibleCache != null) {
-                    cache = possibleCache
+                    serverCompassCache = possibleCache
                 }
             }
         })
@@ -98,7 +126,7 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
         ServerPlayConnectionEvents.JOIN.register({ handler: ServerPlayNetworkHandler,
                                                    _: PacketSender,
                                                    _: MinecraftServer ->
-            Packets.CACHE_PACKET.send(cache, handler.player)
+            Packets.CACHE_PACKET.send(serverCompassCache, handler.player)
         })
     }
 
@@ -135,7 +163,7 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
     override fun inventoryTick(stack: ItemStack?, world: World?, entity: Entity, slot: Int, selected: Boolean) {
         if (selected && stack != null && world != null) {
             if (!world.isClient) {
-                val (compassId, compassData) = getCompassData(stack)
+                val (compassId, compassData) = getServerCompassData(stack)
                 // handle scan timeout
                 compassData.scanTimeoutTicks--
                 val doScan = compassData.scanTimeoutTicks == 0
@@ -164,7 +192,8 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
                                 compassId,
                                 key,
                                 value.lifetimeTicks,
-                                value.target
+                                value.target,
+                                value.color
                             )
                         )
                     )

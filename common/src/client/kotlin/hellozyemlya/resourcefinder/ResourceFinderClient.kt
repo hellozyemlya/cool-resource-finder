@@ -3,8 +3,6 @@ package hellozyemlya.resourcefinder
 import hellozyemlya.common.pushPop
 import hellozyemlya.resourcefinder.items.compass.Packets
 import hellozyemlya.resourcefinder.items.compass.ResourceFinderCompassCache
-import hellozyemlya.resourcefinder.items.getScanList
-import hellozyemlya.resourcefinder.items.getTargetList
 import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.fabric.api.client.model.loading.v1.ModelLoadingPlugin
 import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry
@@ -75,61 +73,66 @@ object ResourceFinderClient : ClientModInitializer {
     ) {
         var topIdx = -1
         var botIdx = -1
-        stack.getTargetList().forEachIndexed { idx, targetRecord ->
-            quadColorOverride = targetRecord.color
-            val blockPost = targetRecord.target
-            matrices.pushPop {
-                matrices.translate(0f, (idx * 0.01f), 0f)
-                matrices.multiply(
-                    RotationAxis.POSITIVE_Y.rotationDegrees(
-                        getArrowAngle(
-                            entity,
-                            blockPost
+        ResourceFinder.RESOURCE_FINDER_ITEM.getClientCompassData(
+            stack,
+            compassCache
+        )?.scanList?.entries?.forEachIndexed { idx, (group, scanRecord) ->
+            quadColorOverride = scanRecord.color
+            val blockPos = scanRecord.target
+            if (blockPos != null) {
+                matrices.pushPop {
+                    matrices.translate(0f, (idx * 0.01f), 0f)
+                    matrices.multiply(
+                        RotationAxis.POSITIVE_Y.rotationDegrees(
+                            getArrowAngle(
+                                entity,
+                                blockPos
+                            )
                         )
                     )
-                )
 
-                renderer.renderItem(
-                    stack,
-                    ModelTransformationMode.NONE,
-                    false,
-                    matrices,
-                    vertexConsumers,
-                    light,
-                    overlay,
-                    MinecraftClient.getInstance().bakedModelManager.getModel(ARROW_MODEL_ID)
-                )
-            }
+                    renderer.renderItem(
+                        stack,
+                        ModelTransformationMode.NONE,
+                        false,
+                        matrices,
+                        vertexConsumers,
+                        light,
+                        overlay,
+                        MinecraftClient.getInstance().bakedModelManager.getModel(ARROW_MODEL_ID)
+                    )
+                }
 
-            if (mode != ModelTransformationMode.GUI) {
-                matrices.pushPop {
-                    val renderIndicator = when {
-                        entity.blockPos.y > blockPost.y -> {
-                            matrices.translate(0f, 0f, -++topIdx * 0.013f)
-                            true
+                if (mode != ModelTransformationMode.GUI) {
+                    matrices.pushPop {
+                        val renderIndicator = when {
+                            entity.blockPos.y > blockPos.y -> {
+                                matrices.translate(0f, 0f, -++topIdx * 0.013f)
+                                true
+                            }
+
+                            entity.blockPos.y < blockPos.y -> {
+                                matrices.multiply(
+                                    RotationAxis.POSITIVE_Y.rotation(Math.PI.toFloat())
+                                )
+                                matrices.translate(0f, 0f, -++botIdx * 0.013f)
+                                true
+                            }
+
+                            else -> false
                         }
-
-                        entity.blockPos.y < blockPost.y -> {
-                            matrices.multiply(
-                                RotationAxis.POSITIVE_Y.rotation(Math.PI.toFloat())
+                        if (renderIndicator) {
+                            renderer.renderItem(
+                                stack,
+                                ModelTransformationMode.NONE,
+                                false,
+                                matrices,
+                                vertexConsumers,
+                                light,
+                                overlay,
+                                MinecraftClient.getInstance().bakedModelManager.getModel(INDICATOR_MODEL_ID)
                             )
-                            matrices.translate(0f, 0f, -++botIdx * 0.013f)
-                            true
                         }
-
-                        else -> false
-                    }
-                    if (renderIndicator) {
-                        renderer.renderItem(
-                            stack,
-                            ModelTransformationMode.NONE,
-                            false,
-                            matrices,
-                            vertexConsumers,
-                            light,
-                            overlay,
-                            MinecraftClient.getInstance().bakedModelManager.getModel(INDICATOR_MODEL_ID)
-                        )
                     }
                 }
             }
@@ -144,7 +147,10 @@ object ResourceFinderClient : ClientModInitializer {
         overlay: Int,
         renderer: ItemRenderer
     ) {
-        stack.getScanList().forEachIndexed { idx, scanRecord ->
+        ResourceFinder.RESOURCE_FINDER_ITEM.getClientCompassData(
+            stack,
+            compassCache
+        )?.scanList?.entries?.forEachIndexed { idx, (group, scanRecord) ->
             quadColorOverride = scanRecord.color
             matrices.push()
             matrices.translate(0f, (idx * 0.01f), 0f)
@@ -277,6 +283,7 @@ object ResourceFinderClient : ClientModInitializer {
                         } else {
                             scanItem.lifetimeTicks = it.ticks
                             scanItem.target = it.target
+                            scanItem.color = it.color
                         }
                     }
                 }
