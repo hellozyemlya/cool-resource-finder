@@ -13,6 +13,10 @@ object ItemTypeAdapter : TypeAdapter<Item>() {
     }
 
     override fun read(reader: JsonReader): Item {
-        return Registries.ITEM.get(Identifier.tryParse(reader.nextString()))
+        val itemId = Identifier.tryParse(reader.nextString())
+        if(!Registries.ITEM.containsId(itemId)) {
+            throw Exception("Can't find item '${itemId}'")
+        }
+        return Registries.ITEM.get(itemId)
     }
 }
