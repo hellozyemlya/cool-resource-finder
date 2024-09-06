@@ -3,7 +3,10 @@ package hellozyemlya.resourcefinder.items
 import hellozyemlya.resourcefinder.MOD_NAMESPACE
 import hellozyemlya.resourcefinder.items.compass.*
 import hellozyemlya.resourcefinder.registry.ResourceRegistry
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromByteArray
+import kotlinx.serialization.encodeToByteArray
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
 import net.fabricmc.fabric.api.networking.v1.PacketSender
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents
@@ -18,6 +21,7 @@ import net.minecraft.server.network.ServerPlayNetworkHandler
 import net.minecraft.text.Text
 import net.minecraft.util.Hand
 import net.minecraft.util.Identifier
+import net.minecraft.util.Unit
 import net.minecraft.world.World
 import net.silkmc.silk.nbt.serialization.decodeFromNbtElement
 import net.silkmc.silk.nbt.serialization.encodeToNbtElement
@@ -30,7 +34,7 @@ import kotlin.jvm.optionals.getOrNull
 
 @Serializable
 data class CompassNbtV0(
-    var compassId: Int = 0,
+    var compassId: Int = -1,
     var data: CompassData? = null,
 )
 
@@ -49,9 +53,10 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
 
     private var serverCompassCache: ResourceFinderCompassCache = ResourceFinderCompassCache()
 
+    @OptIn(ExperimentalSerializationApi::class)
     fun getClientCompassData(stack: ItemStack, clientCache: ResourceFinderCompassCache): CompassData? {
         val compassNbt: CompassNbtV0? = if (stack.hasNbt() && stack.nbt!!.contains(COMPASS_NBT_KEY)) {
-            NBT_SERIALIZER.decodeFromNbtElement(stack.nbt!![COMPASS_NBT_KEY]!!)
+            NETWORK_CBOR.decodeFromByteArray(stack.nbt!!.getByteArray(COMPASS_NBT_KEY)!!)
         } else {
             null
         }
@@ -71,15 +76,32 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
         }
     }
 
+    @OptIn(ExperimentalSerializationApi::class)
+    fun <T> withCompassServerData(stack: ItemStack, action: (CompassNbtV0) -> T): T {
+        val nbtTag = stack.orCreateNbt
+        val compassNbt = if (nbtTag.contains(COMPASS_NBT_KEY)) {
+            NETWORK_CBOR.decodeFromByteArray(nbtTag.getByteArray(COMPASS_NBT_KEY)!!)
+        } else {
+            CompassNbtV0()
+        }.apply {
+            if (compassId == 0) {
+                compassId = serverCompassCache.getNextId()
+            }
+        }
+        val result = action(compassNbt)
+        nbtTag.putByteArray(COMPASS_NBT_KEY, NETWORK_CBOR.encodeToByteArray(compassNbt))
+        return result
+    }
     /**
      * Returns server side compass id and data for given item stack. Will create it if that is new item without
      * any data existing.
      */
+    @OptIn(ExperimentalSerializationApi::class)
     fun getServerCompassData(stack: ItemStack): Pair<Int, CompassData> {
         var modified = false
         val nbtTag = stack.orCreateNbt
         val compassNbt = if (nbtTag.contains(COMPASS_NBT_KEY)) {
-            NBT_SERIALIZER.decodeFromNbtElement(nbtTag[COMPASS_NBT_KEY]!!)
+            NETWORK_CBOR.decodeFromByteArray(nbtTag.getByteArray(COMPASS_NBT_KEY)!!)
         } else {
             modified = true
             CompassNbtV0()
@@ -106,7 +128,7 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
         }
 
         if (modified) {
-            nbtTag.put(COMPASS_NBT_KEY, NBT_SERIALIZER.encodeToNbtElement(compassNbt))
+            nbtTag.putByteArray(COMPASS_NBT_KEY, NETWORK_CBOR.encodeToByteArray(compassNbt))
         }
         return Pair(compassId, compassData)
     }
@@ -123,11 +145,11 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
             }
         })
 
-        ServerPlayConnectionEvents.JOIN.register({ handler: ServerPlayNetworkHandler,
+        ServerPlayConnectionEvents.JOIN.register { handler: ServerPlayNetworkHandler,
                                                    _: PacketSender,
                                                    _: MinecraftServer ->
             Packets.CACHE_PACKET.send(serverCompassCache, handler.player)
-        })
+        }
     }
 
     override fun allowNbtUpdateAnimation(

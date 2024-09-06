@@ -48,15 +48,13 @@ loom {
 sourceSets {
     main {
         java {
-            srcDir("src/main/java")
             srcDir("../common/src/main/java")
         }
         kotlin {
-            srcDir("src/main/kotlin")
             srcDir("../common/src/main/kotlin")
         }
+        // additional common resources
         resources {
-            srcDir("src/main/resources")
             srcDir("../common/src/main/resources")
             srcDir("src/main/generated-${project.name}")
         }
@@ -70,6 +68,7 @@ sourceSets {
             srcDir("src/client/kotlin")
             srcDir("../common/src/client/kotlin")
         }
+        // additional resources for client
         resources {
             srcDir("src/client/resources")
             srcDir("../common/src/client/resources")
@@ -103,38 +102,7 @@ tasks {
         }
     }
 }
-tasks.register("listResources") {
-    doLast {
-        val duplicates = mutableSetOf<String>()
-        val seen = mutableSetOf<String>()
 
-        // Create a file collection for source directories
-        val resourceDirs = files(sourceSets["main"].resources.srcDirs)
-
-        // Use fileTree to create a tree of files from the file collection
-        val fileTree: FileTree = fileTree(resourceDirs)
-
-        // Visit each file and check for duplicates
-        fileTree.visit(object : Action<FileVisitDetails> {
-            override fun execute(details: FileVisitDetails) {
-                val path = details.relativePath.pathString
-                if (seen.contains(path)) {
-                    duplicates.add(path)
-                } else {
-                    seen.add(path)
-                }
-            }
-        })
-
-        // Output results
-        if (duplicates.isNotEmpty()) {
-            println("Duplicate resources found:")
-            duplicates.forEach { println(it) }
-        } else {
-            println("No duplicate resources found.")
-        }
-    }
-}
 tasks.withType<JavaCompile>().configureEach {
     options.release = 17
 }
