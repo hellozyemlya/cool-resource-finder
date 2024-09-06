@@ -80,7 +80,6 @@ class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategor
         val (compass, charges) = getRecipeItems(inventory)
 
         val result = compass.copy()
-        result.orCreateNbt.remove()
         val scanList = RESOURCE_FINDER_ITEM.getServerCompassData(result).second.scanList
 
         charges.forEach { chargeStack ->
