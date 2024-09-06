@@ -1,15 +1,19 @@
 package hellozyemlya.resourcefinder.items
 
+import com.mojang.authlib.minecraft.client.MinecraftClient
 import hellozyemlya.resourcefinder.MOD_NAMESPACE
 import hellozyemlya.resourcefinder.items.compass.CompassData
+import hellozyemlya.resourcefinder.items.compass.CompassScanItem
 import hellozyemlya.resourcefinder.items.storage.createItemStorageCache
 import hellozyemlya.resourcefinder.registry.ResourceRegistry
 import kotlinx.serialization.Serializable
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
 import net.minecraft.client.item.TooltipContext
 import net.minecraft.entity.Entity
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.item.Item
 import net.minecraft.item.ItemStack
+import net.minecraft.server.MinecraftServer
 import net.minecraft.text.Text
 import net.minecraft.util.Hand
 import net.minecraft.world.World
@@ -25,17 +29,40 @@ data class CompassNbtV0(
 
 
 class ResourceFinderCompass(settings: Settings) : Item(settings) {
+    private var minecraftServer: MinecraftServer? = null
+
+    init {
+        ServerLifecycleEvents.SERVER_STARTED.register { server -> minecraftServer = server }
+    }
+
     companion object {
         const val DEFAULT_SCAN_TIMEOUT = 10
     }
 
-    private val storage = createItemStorageCache<CompassData>(
+    public val clientStorage by lazy {
+        storage.Client()
+    }
+
+    public val storage = createItemStorageCache<CompassData>(
         this,
         MOD_NAMESPACE,
         "compass-storage",
         World.OVERWORLD,
         { CompassData() }
     )
+
+    fun copyStack(stack: ItemStack): ItemStack {
+        val result = defaultStack.copy()
+        val originalData = storage.getItemData(stack)
+        storage.modifyItemData(result) { _, data ->
+            data.scanTimeoutTicks = -1
+            originalData.scanList.forEach { (k, v) ->
+                data.scanList[k] = CompassScanItem(v.lifetimeTicks, v.target, v.color)
+            }
+            true to Unit
+        }
+        return result
+    }
 
     override fun allowNbtUpdateAnimation(
         player: PlayerEntity?,
@@ -47,6 +74,10 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
     }
 
     override fun appendTooltip(stack: ItemStack, world: World?, tooltip: MutableList<Text?>, context: TooltipContext?) {
+        if (world != null && world.isClient()) {
+
+        }
+        println()
         // TODO fix me
 //        stack.getScanList().forEach {
 //            val blockName = Texts.setStyleIfAbsent(
@@ -75,7 +106,7 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
 
                     if (doTick) {
                         compassData.scanTimeoutTicks--
-                        val doScan = compassData.scanTimeoutTicks == 0
+                        val doScan = compassData.scanTimeoutTicks <= 0
                         if (doScan) {
                             compassData.scanTimeoutTicks = DEFAULT_SCAN_TIMEOUT
                         }
@@ -96,8 +127,9 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
                             }
                         }
                         true to Unit
+                    } else {
+                        false to Unit
                     }
-                    false to Unit
                 }
             }
         }

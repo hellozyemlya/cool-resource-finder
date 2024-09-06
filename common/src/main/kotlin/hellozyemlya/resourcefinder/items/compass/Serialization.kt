@@ -1,6 +1,9 @@
 package hellozyemlya.resourcefinder.items.compass
 
-import kotlinx.serialization.*
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.InternalSerializationApi
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.cbor.Cbor
 import kotlinx.serialization.descriptors.*
 import kotlinx.serialization.encoding.CompositeDecoder.Companion.DECODE_DONE
@@ -10,12 +13,8 @@ import kotlinx.serialization.encoding.decodeStructure
 import kotlinx.serialization.encoding.encodeStructure
 import kotlinx.serialization.modules.SerializersModule
 import net.minecraft.item.Item
-import net.minecraft.item.ItemStack
 import net.minecraft.registry.Registries
 import net.minecraft.util.math.BlockPos
-import net.silkmc.silk.nbt.serialization.Nbt
-import net.silkmc.silk.nbt.serialization.decodeFromNbtElement
-import net.silkmc.silk.nbt.serialization.encodeToNbtElement
 
 object BlockPosSerializer : KSerializer<BlockPos> {
     private val xDescriptor: SerialDescriptor = PrimitiveSerialDescriptor("x", PrimitiveKind.INT)
@@ -80,12 +79,4 @@ val NETWORK_SERIALIZATION_MODULE = SerializersModule {
 @OptIn(ExperimentalSerializationApi::class)
 val NETWORK_CBOR = Cbor {
     serializersModule = NETWORK_SERIALIZATION_MODULE
-}
-
-public val NBT_SERIALIZATION_MODULE = SerializersModule {
-    contextual(BlockPos::class, BlockPosSerializer)
-}
-
-val NBT_SERIALIZER = Nbt {
-    serializersModule = NBT_SERIALIZATION_MODULE
 }

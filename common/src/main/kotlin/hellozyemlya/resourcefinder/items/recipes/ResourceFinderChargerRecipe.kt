@@ -67,7 +67,7 @@ class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategor
 
             val estimatedChargesCount =
                 Streams.concat(
-                    RESOURCE_FINDER_ITEM.getServerCompassData(compassStack).second.scanList.entries.stream().map { it.key },
+                    RESOURCE_FINDER_ITEM.storage.getItemData(compassStack).scanList.entries.stream().map { it.key },
                     charges.stream().map { ResourceRegistry.INSTANCE.getByChargingItem(it.item).group }
                 ).collect(Collectors.toSet()).size
             return estimatedChargesCount <= MAX_SCAN_CHARGES
@@ -79,20 +79,24 @@ class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategor
     override fun craft(inventory: RecipeInputInventoryAlias, registryManager: DynamicRegistryManager?): ItemStack {
         val (compass, charges) = getRecipeItems(inventory)
 
-        val result = compass.copy()
-        val scanList = RESOURCE_FINDER_ITEM.getServerCompassData(result).second.scanList
+        val result = RESOURCE_FINDER_ITEM.copyStack(compass)
 
-        charges.forEach { chargeStack ->
-            val chargeItem = chargeStack.item
-            val resourceEntry = ResourceRegistry.INSTANCE.getByChargingItem(chargeItem)
+        RESOURCE_FINDER_ITEM.storage.modifyItemData(result) { _, data ->
+            val scanList = data.scanList
+            charges.forEach { chargeStack ->
+                val chargeItem = chargeStack.item
+                val resourceEntry = ResourceRegistry.INSTANCE.getByChargingItem(chargeItem)
 
-            val chargeValue = resourceEntry.getChargeTicks(chargeItem) * chargeStack.count
-            val existingEntry = scanList.entries.firstOrNull { it.key == resourceEntry.group }
-            if (existingEntry != null) {
-                existingEntry.value.lifetimeTicks += chargeValue
-            } else {
-                scanList[resourceEntry.group] = CompassScanItem(chargeValue, color = resourceEntry.color)
+                val chargeValue = resourceEntry.getChargeTicks(chargeItem) * chargeStack.count
+                val existingEntry = scanList.entries.firstOrNull { it.key == resourceEntry.group }
+                if (existingEntry != null) {
+                    existingEntry.value.lifetimeTicks += chargeValue
+                } else {
+                    scanList[resourceEntry.group] = CompassScanItem(chargeValue, color = resourceEntry.color)
+                }
             }
+            true to Unit
+
         }
 
         return result

@@ -2,9 +2,7 @@ package hellozyemlya.resourcefinder.items.storage
 
 import hellozyemlya.resourcefinder.items.compass.NETWORK_CBOR
 import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromByteArray
-import kotlinx.serialization.encodeToByteArray
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
 import net.fabricmc.fabric.api.networking.v1.PacketSender
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents
@@ -20,23 +18,20 @@ import net.silkmc.silk.network.packet.s2cPacket
 import net.silkmc.silk.persistence.compoundKey
 import net.silkmc.silk.persistence.persistentCompound
 
-
-@Serializable
-data class ItemNbt<T>(var id: Int = -1, var data: T?)
-
 /**
  * Represents client-server synchronized storage of data, associated with item stack. Requires stack max size to be 1.
  */
 @OptIn(ExperimentalSerializationApi::class)
 class ItemStorageCache<T : Any>(
     private val item: Item,
-    private val nbtKey: Identifier,
+    nbtIdKey: Identifier,
     persistKey: Identifier,
     private val persistIn: RegistryKey<World> = World.OVERWORLD,
     private val updPacket: ServerToClientPacketDefinition<Pair<Int, T>>,
     private val cacheDumpPacket: ServerToClientPacketDefinition<Map<Int, T>>,
     private val defaultData: () -> T,
 ) {
+    private val nbtIdKey = nbtIdKey.toString()
     private val persistCompoundKey = compoundKey<ByteArray>(persistKey)
 
     init {
@@ -63,63 +58,34 @@ class ItemStorageCache<T : Any>(
     private var nextId: Int = -1
     private fun getNextId(): Int = ++nextId
 
-    fun <R> modifyItemData(stack: ItemStack, use: (id: Int, data: T) -> Pair<Boolean, R>): R {
-        return modifyItemData(stack, true, use)
+    fun getItemData(stack: ItemStack): T {
+        return modifyItemData(stack) { _, data -> false to data }
     }
 
     @OptIn(ExperimentalSerializationApi::class)
-    fun <R> modifyItemData(stack: ItemStack, useCache: Boolean, use: (id: Int, data: T) -> Pair<Boolean, R>): R {
+    fun <R> modifyItemData(stack: ItemStack, use: (id: Int, data: T) -> Pair<Boolean, R>): R {
         if (stack.item != item) {
             throw Exception("Requires ${item}, got ${stack.item}")
         }
 
-        var needWriteNbt = false
-
         // get or create default nbt
-        val nbt: ItemNbt<T> = if (stack.hasNbt() && stack.nbt!!.contains(nbtKey.toString())) {
-            val nbt = stack.nbt!!.getByteArray(nbtKey.toString())
-            NETWORK_CBOR.decodeFromByteArray(nbt)
+        val itemId = if (stack.hasNbt() && stack.nbt!!.contains(nbtIdKey)) {
+            stack.nbt!!.getInt(nbtIdKey)
         } else {
-            needWriteNbt = true
-            ItemNbt<T>(-1, defaultData())
+            val newId = getNextId()
+            stack.orCreateNbt.putInt(nbtIdKey, newId)
+            newId
         }
 
-        val (itemId, itemData) = if (useCache) {
-            // dump to cache(or read from cache) if required
-            if (nbt.id == -1) {
-                // dump from nbt to cache, and return value from cache
-                nbt.id = getNextId()
-                needWriteNbt = true
-                cache[nbt.id] = if (nbt.data != null) {
-                    nbt.data!!
-                } else {
-                    defaultData()
-                }
-                nbt.data = null
-                nbt.id to cache[nbt.id]!!
-            } else {
-                // or just get from cache
-                if (!cache.containsKey(nbt.id)) {
-                    cache[nbt.id] = defaultData()
-                }
-                nbt.id to cache[nbt.id]!!
-            }
-        } else {
-            // just use nbt value or cached value
-            nbt.id to nbt.data!!
+        if (!cache.containsKey(itemId)) {
+            cache[itemId] = defaultData()
         }
+        val itemData = cache[itemId]!!
 
-        val (modify, result) = use(itemId, itemData)
-
-        // modifications made, and we don't using cache, need write nbt
-        needWriteNbt = needWriteNbt || (!useCache && modify)
-
-        if (needWriteNbt) {
-            stack.orCreateNbt.putByteArray(nbtKey.toString(), NETWORK_CBOR.encodeToByteArray(nbt))
-        }
+        val (modified, result) = use(itemId, itemData)
 
         // send updated data for item to all currently connected clients
-        if (useCache && modify) {
+        if (modified) {
             updPacket.sendToAll(itemId to itemData)
         }
 
@@ -140,22 +106,27 @@ class ItemStorageCache<T : Any>(
             }
         }
 
-        @OptIn(ExperimentalSerializationApi::class)
         public fun <R> useData(stack: ItemStack, use: (id: Int, data: T) -> R): R {
             if (stack.item != item) {
                 throw Exception("Requires ${item}, got ${stack.item}")
             }
-            if (stack.hasNbt() && stack.nbt!!.contains(nbtKey.toString())) {
-                val nbt = NETWORK_CBOR.decodeFromByteArray<ItemNbt<T>>(stack.nbt!!.getByteArray(nbtKey.toString()))
-                if (nbt.id == -1) {
-                    return use(-1, if (nbt.data != null) nbt.data!! else defaultData())
-                } else {
-                    return use(nbt.id, if (clientCache.contains(nbt.id)) clientCache[nbt.id]!! else defaultData())
-
-                }
+            if (stack.hasNbt() && stack.nbt!!.contains(nbtIdKey)) {
+                val itemId = stack.nbt!!.getInt(nbtIdKey)
+                return use(itemId, if (clientCache.contains(itemId)) clientCache[itemId]!! else defaultData())
             }
 
             return use(-1, defaultData())
+        }
+
+        public fun getData(stack: ItemStack): T {
+            if (stack.item != item) {
+                throw Exception("Requires ${item}, got ${stack.item}")
+            }
+            if (stack.hasNbt() && stack.nbt!!.contains(nbtIdKey)) {
+                val itemId = stack.nbt!!.getInt(nbtIdKey)
+                return if (clientCache.contains(itemId)) clientCache[itemId]!! else defaultData()
+            }
+            return defaultData()
         }
     }
 
@@ -173,7 +144,7 @@ public inline fun <reified T : Any> createItemStorageCache(
     noinline defaultData: () -> T
 ): ItemStorageCache<T> {
     return ItemStorageCache<T>(
-        item, Identifier(prefix, "${suffix}-nbt"),
+        item, Identifier(prefix, "${suffix}-id-key"),
         Identifier(prefix, "${suffix}-persist"),
         persistIn,
         s2cPacket<Pair<Int, T>>(Identifier(prefix, "${suffix}-upd-pkt"), NETWORK_CBOR),

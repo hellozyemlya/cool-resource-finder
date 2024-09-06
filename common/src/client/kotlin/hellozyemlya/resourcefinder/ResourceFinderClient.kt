@@ -1,8 +1,6 @@
 package hellozyemlya.resourcefinder
 
 import hellozyemlya.common.pushPop
-import hellozyemlya.resourcefinder.items.compass.Packets
-import hellozyemlya.resourcefinder.items.compass.ResourceFinderCompassCache
 import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.fabric.api.client.model.loading.v1.ModelLoadingPlugin
 import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry
@@ -38,7 +36,7 @@ object ResourceFinderClient : ClientModInitializer {
 
     private var quadColorOverride: Int = -1
     private var lastEntity: LivingEntity? = null
-    private var compassCache: ResourceFinderCompassCache = ResourceFinderCompassCache()
+    private val clientData = ResourceFinder.RESOURCE_FINDER_ITEM.storage.createClient()
 
     private fun getAngleTo(entity: Entity, pos: BlockPos): Double {
         val vec3d = Vec3d.ofCenter(pos)
@@ -73,10 +71,7 @@ object ResourceFinderClient : ClientModInitializer {
     ) {
         var topIdx = -1
         var botIdx = -1
-        ResourceFinder.RESOURCE_FINDER_ITEM.getClientCompassData(
-            stack,
-            compassCache
-        )?.scanList?.entries?.forEachIndexed { idx, (group, scanRecord) ->
+        clientData.getData(stack).scanList.entries.forEachIndexed { idx, (group, scanRecord) ->
             quadColorOverride = scanRecord.color
             val blockPos = scanRecord.target
             if (blockPos != null) {
@@ -147,10 +142,7 @@ object ResourceFinderClient : ClientModInitializer {
         overlay: Int,
         renderer: ItemRenderer
     ) {
-        ResourceFinder.RESOURCE_FINDER_ITEM.getClientCompassData(
-            stack,
-            compassCache
-        )?.scanList?.entries?.forEachIndexed { idx, (group, scanRecord) ->
+        clientData.getData(stack).scanList.entries.forEachIndexed { idx, (group, scanRecord) ->
             quadColorOverride = scanRecord.color
             matrices.push()
             matrices.translate(0f, (idx * 0.01f), 0f)
@@ -265,29 +257,8 @@ object ResourceFinderClient : ClientModInitializer {
             { _: ItemStack, _: Int -> quadColorOverride },
             ResourceFinder.RESOURCE_FINDER_ITEM
         )
-
+        MinecraftClient.getInstance()
         // use custom render function for compass
         BuiltinItemRendererRegistry.INSTANCE.register(ResourceFinder.RESOURCE_FINDER_ITEM, ::renderCompass)
-        // handle network packets
-        Packets.CACHE_PACKET.receiveOnClient { packet, context ->
-            compassCache = packet
-        }
-        Packets.SCAN_ITEM_CHANGE_PACKET.receiveOnClient { packet, context ->
-            packet.forEach {
-                val compassData = compassCache.instances[it.compassId]
-                if (compassData != null) {
-                    val scanItem = compassData.scanList[it.chargeItem]
-                    if (scanItem != null) {
-                        if (it.ticks == 0) {
-                            compassData.scanList.remove(it.chargeItem)
-                        } else {
-                            scanItem.lifetimeTicks = it.ticks
-                            scanItem.target = it.target
-                            scanItem.color = it.color
-                        }
-                    }
-                }
-            }
-        }
     }
 }
