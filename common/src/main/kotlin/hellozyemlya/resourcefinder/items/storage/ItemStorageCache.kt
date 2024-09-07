@@ -10,13 +10,54 @@ import net.fabricmc.fabric.api.networking.v1.PacketSender
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents
 import net.minecraft.item.Item
 import net.minecraft.item.ItemStack
+import net.minecraft.nbt.NbtCompound
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.network.ServerPlayNetworkHandler
+import net.minecraft.server.world.ServerWorld
 import net.minecraft.util.Identifier
+import net.minecraft.world.PersistentState
 import net.minecraft.world.World
 import net.silkmc.silk.network.packet.ServerToClientPacketDefinition
-import net.silkmc.silk.persistence.compoundKey
-import net.silkmc.silk.persistence.persistentCompound
+
+
+class ItemsCachePersistStateManager(nextId: Int = -1, serializedData: ByteArray? = null) : PersistentState() {
+    var nextId: Int = nextId
+        set(value) {
+            field = value
+            markDirty()
+        }
+
+    var serializedData: ByteArray? = serializedData
+        set(value) {
+            field = value
+            markDirty()
+        }
+
+    override fun writeNbt(nbt: NbtCompound): NbtCompound {
+        nbt.putInt("next_id", nextId)
+        if (serializedData != null) {
+            nbt.putByteArray("serialized_data", serializedData)
+        }
+        return nbt
+    }
+}
+
+fun ServerWorld.getItemsCacheState(uniqueDataKey: String): ItemsCachePersistStateManager {
+    return this.persistentStateManager.getOrCreate(
+        { compound ->
+            ItemsCachePersistStateManager(
+                compound.getInt("next_id"),
+                if (compound.contains("serialized_data")) {
+                    compound.getByteArray("serialized_data")
+                } else {
+                    null
+                }
+            )
+        },
+        { ItemsCachePersistStateManager() },
+        "${uniqueDataKey}-persist"
+    )
+}
 
 /**
  * Represents client-server synchronized storage of data, associated with item stack. Requires stack max size to be 1.
@@ -24,7 +65,7 @@ import net.silkmc.silk.persistence.persistentCompound
 @OptIn(ExperimentalSerializationApi::class)
 class ItemStorageCache<T : Any>(
     private val item: Item,
-    uniqueDataKey: String,
+    private val uniqueDataKey: String,
     private val dataMapSerializer: KSerializer<Map<Int, T>>,
     dataRecordSerializer: KSerializer<Pair<Int, T>>,
     private val defaultData: () -> T,
@@ -42,8 +83,6 @@ class ItemStorageCache<T : Any>(
     )
     private var server: MinecraftServer? = null
     private val nbtIdKey = "${uniqueDataKey}-nbt"
-    private val persistCompoundKey = compoundKey<ByteArray>(Identifier(MOD_NAMESPACE, "${uniqueDataKey}-persist"))
-    private val idCompoundKey = compoundKey<Int>(Identifier(MOD_NAMESPACE, "${uniqueDataKey}-id"))
     private var serverThread: Long? = null
 
     init {
@@ -53,14 +92,14 @@ class ItemStorageCache<T : Any>(
         ServerLifecycleEvents.SERVER_STARTED.register(ServerLifecycleEvents.ServerStarted {
             serverThread = Thread.currentThread().id
             server = it
+            serverCache.clear()
             val persistWorld = it.getWorld(persistIn)
             if (persistWorld != null) {
-                val possibleCache = persistWorld.persistentCompound[persistCompoundKey]
-                if (possibleCache != null) {
-                    serverCache.clear()
-                    serverCache.putAll(NETWORK_CBOR.decodeFromByteArray(dataMapSerializer, possibleCache))
+                val ps = persistWorld.getItemsCacheState(uniqueDataKey)
+                if (ps.serializedData != null) {
+                    serverCache.putAll(NETWORK_CBOR.decodeFromByteArray(dataMapSerializer, ps.serializedData!!))
                 }
-                nextId = persistWorld.persistentCompound[idCompoundKey] ?: -1
+                nextId = ps.nextId
             }
         })
 
@@ -77,11 +116,8 @@ class ItemStorageCache<T : Any>(
 
     private fun getNextId(): Int {
         requireServer()
-
-        nextId++
-        server!!.getWorld(World.OVERWORLD)!!.persistentCompound[idCompoundKey] = nextId
-        server!!.getWorld(World.OVERWORLD)!!.persistentStateManager.save()
-        return nextId
+        val ps = server!!.getWorld(World.OVERWORLD)!!.getItemsCacheState(uniqueDataKey)
+        return ++ps.nextId
     }
 
     //    persistWorld.persistentCompound[idCompoundKey]
@@ -142,9 +178,8 @@ class ItemStorageCache<T : Any>(
             // TODO better persistence
             val persistWorld = server!!.getWorld(persistIn)
             if (persistWorld != null) {
-                persistWorld.persistentCompound[persistCompoundKey] =
-                    NETWORK_CBOR.encodeToByteArray(dataMapSerializer, serverCache)
-                persistWorld.persistentStateManager.save()
+                val ps = server!!.getWorld(World.OVERWORLD)!!.getItemsCacheState(uniqueDataKey)
+                ps.serializedData = NETWORK_CBOR.encodeToByteArray(dataMapSerializer, serverCache)
             }
 
         }
