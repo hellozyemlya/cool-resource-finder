@@ -1,7 +1,6 @@
 package hellozyemlya.resourcefinder.items
 
-import com.mojang.authlib.minecraft.client.MinecraftClient
-import hellozyemlya.resourcefinder.MOD_NAMESPACE
+import hellozyemlya.resourcefinder.ResourceFinderTexts
 import hellozyemlya.resourcefinder.items.compass.CompassData
 import hellozyemlya.resourcefinder.items.compass.CompassScanItem
 import hellozyemlya.resourcefinder.items.storage.createItemStorageCache
@@ -14,8 +13,12 @@ import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.item.Item
 import net.minecraft.item.ItemStack
 import net.minecraft.server.MinecraftServer
+import net.minecraft.text.Style
 import net.minecraft.text.Text
+import net.minecraft.text.TextColor
+import net.minecraft.text.Texts
 import net.minecraft.util.Hand
+import net.minecraft.util.StringHelper
 import net.minecraft.world.World
 import kotlin.collections.component1
 import kotlin.collections.component2
@@ -39,15 +42,9 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
         const val DEFAULT_SCAN_TIMEOUT = 10
     }
 
-    public val clientStorage by lazy {
-        storage.Client()
-    }
-
     public val storage = createItemStorageCache<CompassData>(
         this,
-        MOD_NAMESPACE,
         "compass-storage",
-        World.OVERWORLD,
         { CompassData() }
     )
 
@@ -74,27 +71,22 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
     }
 
     override fun appendTooltip(stack: ItemStack, world: World?, tooltip: MutableList<Text?>, context: TooltipContext?) {
-        if (world != null && world.isClient()) {
-
+        storage.getItemData(stack).scanList.forEach { (k, v) ->
+            val blockName = Texts.setStyleIfAbsent(
+                k.name.copyContentOnly(),
+                Style.EMPTY.withColor(TextColor.fromRgb(v.color))
+            )
+            tooltip.add(
+                Texts.join(
+                    mutableListOf(
+                        ResourceFinderTexts.SCAN_FOR,
+                        blockName,
+                        ResourceFinderTexts.SCAN_JOIN,
+                        Text.of(StringHelper.formatTicks(v.lifetimeTicks))
+                    ), Text.of(" ")
+                )
+            )
         }
-        println()
-        // TODO fix me
-//        stack.getScanList().forEach {
-//            val blockName = Texts.setStyleIfAbsent(
-//                it.key.name.copyContentOnly(),
-//                Style.EMPTY.withColor(TextColor.fromRgb(it.color))
-//            )
-//            tooltip.add(
-//                Texts.join(
-//                    mutableListOf(
-//                        ResourceFinderTexts.SCAN_FOR,
-//                        blockName,
-//                        ResourceFinderTexts.SCAN_JOIN,
-//                        Text.of(StringHelper.formatTicks(it.lifetime))
-//                    ), Text.of(" ")
-//                )
-//            )
-//        }
     }
 
 

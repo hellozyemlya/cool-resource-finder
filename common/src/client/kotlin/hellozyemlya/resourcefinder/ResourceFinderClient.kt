@@ -36,7 +36,6 @@ object ResourceFinderClient : ClientModInitializer {
 
     private var quadColorOverride: Int = -1
     private var lastEntity: LivingEntity? = null
-    private val clientData = ResourceFinder.RESOURCE_FINDER_ITEM.storage.createClient()
 
     private fun getAngleTo(entity: Entity, pos: BlockPos): Double {
         val vec3d = Vec3d.ofCenter(pos)
@@ -71,7 +70,7 @@ object ResourceFinderClient : ClientModInitializer {
     ) {
         var topIdx = -1
         var botIdx = -1
-        clientData.getData(stack).scanList.entries.forEachIndexed { idx, (group, scanRecord) ->
+        ResourceFinder.RESOURCE_FINDER_ITEM.storage.getItemData(stack).scanList.entries.forEachIndexed { idx, (group, scanRecord) ->
             quadColorOverride = scanRecord.color
             val blockPos = scanRecord.target
             if (blockPos != null) {
@@ -142,7 +141,7 @@ object ResourceFinderClient : ClientModInitializer {
         overlay: Int,
         renderer: ItemRenderer
     ) {
-        clientData.getData(stack).scanList.entries.forEachIndexed { idx, (group, scanRecord) ->
+        ResourceFinder.RESOURCE_FINDER_ITEM.storage.getItemData(stack).scanList.entries.forEachIndexed { idx, (group, scanRecord) ->
             quadColorOverride = scanRecord.color
             matrices.push()
             matrices.translate(0f, (idx * 0.01f), 0f)
@@ -238,6 +237,8 @@ object ResourceFinderClient : ClientModInitializer {
     }
 
     override fun onInitializeClient() {
+        ResourceFinder.RESOURCE_FINDER_ITEM.storage.initClient()
+
         // load compass parts models
         ModelLoadingPlugin.register { ctx ->
             ctx.addModels(BASE_MODEL_ID, INDICATOR_MODEL_ID, ARROW_MODEL_ID)
@@ -257,7 +258,7 @@ object ResourceFinderClient : ClientModInitializer {
             { _: ItemStack, _: Int -> quadColorOverride },
             ResourceFinder.RESOURCE_FINDER_ITEM
         )
-        MinecraftClient.getInstance()
+
         // use custom render function for compass
         BuiltinItemRendererRegistry.INSTANCE.register(ResourceFinder.RESOURCE_FINDER_ITEM, ::renderCompass)
     }
