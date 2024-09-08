@@ -3,9 +3,11 @@ package hellozyemlya.resourcefinder.items.storage
 import hellozyemlya.resourcefinder.MOD_NAMESPACE
 import hellozyemlya.resourcefinder.items.compass.NETWORK_CBOR
 import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.KSerializer
-import kotlinx.serialization.serializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromByteArray
+import kotlinx.serialization.encodeToByteArray
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 import net.fabricmc.fabric.api.networking.v1.PacketSender
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents
 import net.minecraft.item.Item
@@ -17,199 +19,184 @@ import net.minecraft.server.world.ServerWorld
 import net.minecraft.util.Identifier
 import net.minecraft.world.PersistentState
 import net.minecraft.world.World
-import net.silkmc.silk.network.packet.ServerToClientPacketDefinition
+import net.silkmc.silk.network.packet.s2cPacket
+
+@Serializable
+data class DataStorage<T>(var nextId: Int = -1, var data: MutableMap<Int, T> = mutableMapOf())
 
 
-class ItemsCachePersistStateManager(nextId: Int = -1, serializedData: ByteArray? = null) : PersistentState() {
-    var nextId: Int = nextId
-        set(value) {
-            field = value
-            markDirty()
+abstract class ItemsCachePersistStateManager<T> : PersistentState() {
+    abstract var nextId: Int
+
+    abstract var data: MutableMap<Int, T>
+}
+
+@OptIn(ExperimentalSerializationApi::class)
+inline fun <reified T> itemsCachePersistStateManager(storage: DataStorage<T>): ItemsCachePersistStateManager<T> {
+    return object : ItemsCachePersistStateManager<T>() {
+        override var nextId: Int
+            get() = storage.nextId
+            set(value) {
+                storage.nextId = value
+                markDirty()
+            }
+
+        override var data: MutableMap<Int, T>
+            get() = storage.data
+            set(value) {
+                storage.data = value
+                markDirty()
+            }
+
+        override fun writeNbt(nbt: NbtCompound): NbtCompound {
+            nbt.putByteArray("data", NETWORK_CBOR.encodeToByteArray(storage))
+            return nbt
         }
-
-    var serializedData: ByteArray? = serializedData
-        set(value) {
-            field = value
-            markDirty()
-        }
-
-    override fun writeNbt(nbt: NbtCompound): NbtCompound {
-        nbt.putInt("next_id", nextId)
-        if (serializedData != null) {
-            nbt.putByteArray("serialized_data", serializedData)
-        }
-        return nbt
     }
 }
 
-fun ServerWorld.getItemsCacheState(uniqueDataKey: String): ItemsCachePersistStateManager {
+@OptIn(ExperimentalSerializationApi::class)
+inline fun <reified T> ServerWorld.getItemsCacheState(uniqueDataKey: String): ItemsCachePersistStateManager<T> {
     return this.persistentStateManager.getOrCreate(
         { compound ->
-            ItemsCachePersistStateManager(
-                compound.getInt("next_id"),
-                if (compound.contains("serialized_data")) {
-                    compound.getByteArray("serialized_data")
-                } else {
-                    null
-                }
-            )
+            val decoded = NETWORK_CBOR.decodeFromByteArray<DataStorage<T>>(compound.getByteArray("data"))
+            itemsCachePersistStateManager(decoded)
         },
-        { ItemsCachePersistStateManager() },
+        { itemsCachePersistStateManager(DataStorage()) },
         "${uniqueDataKey}-persist"
     )
 }
 
-/**
- * Represents client-server synchronized storage of data, associated with item stack. Requires stack max size to be 1.
- */
+
+interface ItemStorageCache<T : Any> {
+    fun getNextId(): Int
+    fun getItemData(stack: ItemStack): T
+    fun <R> modifyItemData(stack: ItemStack, use: (id: Int, data: T) -> Pair<Boolean, R>): R
+    fun initClient()
+}
+
 @OptIn(ExperimentalSerializationApi::class)
-class ItemStorageCache<T : Any>(
-    private val item: Item,
-    private val uniqueDataKey: String,
-    private val dataMapSerializer: KSerializer<Map<Int, T>>,
-    dataRecordSerializer: KSerializer<Pair<Int, T>>,
-    private val defaultData: () -> T,
-) {
-    private val persistIn = World.OVERWORLD
-    private val updPacket: ServerToClientPacketDefinition<Pair<Int, T>> = ServerToClientPacketDefinition(
-        Identifier(MOD_NAMESPACE, "${uniqueDataKey}-upd-packet"),
-        NETWORK_CBOR,
-        dataRecordSerializer
-    )
-    private val cacheDumpPacket: ServerToClientPacketDefinition<Map<Int, T>> = ServerToClientPacketDefinition(
-        Identifier(MOD_NAMESPACE, "${uniqueDataKey}-cache-packet"),
-        NETWORK_CBOR,
-        dataMapSerializer
-    )
-    private var server: MinecraftServer? = null
-    private val nbtIdKey = "${uniqueDataKey}-nbt"
-    private var serverThread: Long? = null
+inline fun <reified T : Any> itemStorageCache(
+    item: Item,
+    uniqueDataKey: String,
+    noinline defaultFactory: () -> T
+): ItemStorageCache<T> {
+    val persistIn = World.OVERWORLD
+    val updPacket = s2cPacket<Map<Int, T>>(Identifier(MOD_NAMESPACE, "${uniqueDataKey}-upd-packet"), NETWORK_CBOR)
+    val cacheDumpPacket =
+        s2cPacket<Map<Int, T>>(Identifier(MOD_NAMESPACE, "${uniqueDataKey}-cache-packet"), NETWORK_CBOR)
+    var server: MinecraftServer? = null
+    val nbtIdKey = "${uniqueDataKey}-nbt"
+    var serverThread: Long? = null
+    val serverCache: HashMap<Int, T> = hashMapOf()
+    val clientCache: HashMap<Int, T> = hashMapOf()
 
-    init {
-        assert(item.maxCount == 1, { "ItemStorageCache requires maxCount = 1" })
+    assert(item.maxCount == 1, { "ItemStorageCache requires maxCount = 1" })
 
-
-        ServerLifecycleEvents.SERVER_STARTED.register(ServerLifecycleEvents.ServerStarted {
-            serverThread = Thread.currentThread().id
-            server = it
-            serverCache.clear()
-            val persistWorld = it.getWorld(persistIn)
-            if (persistWorld != null) {
-                val ps = persistWorld.getItemsCacheState(uniqueDataKey)
-                if (ps.serializedData != null) {
-                    serverCache.putAll(NETWORK_CBOR.decodeFromByteArray(dataMapSerializer, ps.serializedData!!))
-                }
-                nextId = ps.nextId
-            }
-        })
-
-        ServerPlayConnectionEvents.JOIN.register { handler: ServerPlayNetworkHandler,
-                                                   _: PacketSender,
-                                                   _: MinecraftServer ->
-            cacheDumpPacket.send(serverCache, handler.player)
-        }
-    }
-
-    private val serverCache: HashMap<Int, T> = hashMapOf()
-    private val clientCache: HashMap<Int, T> = hashMapOf()
-    private var nextId: Int = -1
-
-    private fun getNextId(): Int {
-        requireServer()
-        val ps = server!!.getWorld(World.OVERWORLD)!!.getItemsCacheState(uniqueDataKey)
-        return ++ps.nextId
-    }
-
-    //    persistWorld.persistentCompound[idCompoundKey]
-    private fun requireServer() {
+    val isServer: () -> Boolean = { serverThread != null && serverThread == Thread.currentThread().id }
+    val requireServer: () -> Unit = {
         require(server != null && isServer()) {
             "Expected to be executed in server"
         }
     }
 
-    private fun isServer(): Boolean {
-        return serverThread != null && serverThread == Thread.currentThread().id
+    // remember server thread; load persisted data
+    ServerLifecycleEvents.SERVER_STARTED.register(ServerLifecycleEvents.ServerStarted {
+        serverThread = Thread.currentThread().id
+        server = it
+        serverCache.clear()
+        val persistWorld = it.getWorld(persistIn)
+        if (persistWorld != null) {
+            val ps = persistWorld.getItemsCacheState<T>(uniqueDataKey)
+            serverCache.putAll(ps.data)
+        }
+    })
+
+    // ensure to send compass data cache to new client
+    ServerPlayConnectionEvents.JOIN.register { handler: ServerPlayNetworkHandler,
+                                               _: PacketSender,
+                                               _: MinecraftServer ->
+        cacheDumpPacket.send(serverCache, handler.player)
     }
 
-    /**
-     * Returns data for given item stack. It is safe to call that on client and server logical sides.
-     */
-    fun getItemData(stack: ItemStack): T {
-        if (isServer()) {
-            return modifyItemData(stack) { _, data -> false to data }
-        } else {
+    // manage update packet sending at the end of the server tick
+    val updData = mutableMapOf<Int, T>()
+
+    ServerTickEvents.END_SERVER_TICK.register { _ ->
+        if (updData.isNotEmpty()) {
+            updPacket.sendToAll(updData)
+            val persistWorld = server!!.getWorld(persistIn)
+            if (persistWorld != null) {
+                val ps = server!!.getWorld(persistIn)!!.getItemsCacheState<T>(uniqueDataKey)
+                ps.data = serverCache
+            }
+            updData.clear()
+        }
+    }
+
+    return object : ItemStorageCache<T> {
+        override fun getNextId(): Int {
+            requireServer()
+            val ps = server!!.getWorld(persistIn)!!.getItemsCacheState<T>(uniqueDataKey)
+            return ++ps.nextId
+        }
+
+        override fun getItemData(stack: ItemStack): T {
+            if (isServer()) {
+                return modifyItemData(stack) { _, data -> false to data }
+            } else {
+                if (stack.item != item) {
+                    throw Exception("Requires ${item}, got ${stack.item}")
+                }
+                if (stack.hasNbt() && stack.nbt!!.contains(nbtIdKey)) {
+                    val itemId = stack.nbt!!.getInt(nbtIdKey)
+                    return if (clientCache.contains(itemId)) clientCache[itemId]!! else defaultFactory()
+                }
+                return defaultFactory()
+            }
+        }
+
+        override fun initClient() {
+            cacheDumpPacket.receiveOnClient { packet, _ ->
+                clientCache.clear()
+                clientCache.putAll(packet)
+            }
+
+            updPacket.receiveOnClient { packet, _ ->
+                clientCache.putAll(packet)
+            }
+        }
+
+        override fun <R> modifyItemData(stack: ItemStack, use: (id: Int, data: T) -> Pair<Boolean, R>): R {
+            requireServer()
+
             if (stack.item != item) {
                 throw Exception("Requires ${item}, got ${stack.item}")
             }
-            if (stack.hasNbt() && stack.nbt!!.contains(nbtIdKey)) {
-                val itemId = stack.nbt!!.getInt(nbtIdKey)
-                return if (clientCache.contains(itemId)) clientCache[itemId]!! else defaultData()
-            }
-            return defaultData()
-        }
-    }
 
-    fun <R> modifyItemData(stack: ItemStack, use: (id: Int, data: T) -> Pair<Boolean, R>): R {
-        requireServer()
-
-        if (stack.item != item) {
-            throw Exception("Requires ${item}, got ${stack.item}")
-        }
-
-        // get or create default nbt
-        val itemId = if (stack.hasNbt() && stack.nbt!!.contains(nbtIdKey)) {
-            stack.nbt!!.getInt(nbtIdKey)
-        } else {
-            val newId = getNextId()
-            stack.orCreateNbt.putInt(nbtIdKey, newId)
-            newId
-        }
-
-        if (!serverCache.containsKey(itemId)) {
-            serverCache[itemId] = defaultData()
-        }
-        val itemData = serverCache[itemId]!!
-
-        val (modified, result) = use(itemId, itemData)
-
-        // send updated data for item to all currently connected clients
-        if (modified) {
-            updPacket.sendToAll(itemId to itemData)
-            // TODO better persistence
-            val persistWorld = server!!.getWorld(persistIn)
-            if (persistWorld != null) {
-                val ps = server!!.getWorld(World.OVERWORLD)!!.getItemsCacheState(uniqueDataKey)
-                ps.serializedData = NETWORK_CBOR.encodeToByteArray(dataMapSerializer, serverCache)
+            val itemId = if (stack.hasNbt() && stack.nbt!!.contains(nbtIdKey)) {
+                stack.nbt!!.getInt(nbtIdKey)
+            } else {
+                val newId = getNextId()
+                stack.orCreateNbt.putInt(nbtIdKey, newId)
+                newId
             }
 
-        }
+            val (cacheModified, itemData) = if (!serverCache.containsKey(itemId)) {
+                val data = defaultFactory()
+                serverCache[itemId] = data
+                true to data
+            } else {
+                false to serverCache[itemId]!!
+            }
 
-        return result
+            val (modified, result) = use(itemId, itemData)
+
+            if (modified || cacheModified) {
+                updData[itemId] = itemData
+            }
+
+            return result
+        }
     }
-
-    fun initClient() {
-        cacheDumpPacket.receiveOnClient { packet, _ ->
-            clientCache.clear()
-            clientCache.putAll(packet)
-        }
-
-        updPacket.receiveOnClient { (id, data), _ ->
-            clientCache[id] = data
-        }
-    }
-}
-
-@OptIn(ExperimentalSerializationApi::class)
-inline fun <reified T : Any> createItemStorageCache(
-    item: Item,
-    uniqueDataKey: String,
-    noinline defaultFactory: () -> T
-): ItemStorageCache<T> {
-    return ItemStorageCache(
-        item,
-        uniqueDataKey,
-        NETWORK_CBOR.serializersModule.serializer<Map<Int, T>>(),
-        NETWORK_CBOR.serializersModule.serializer<Pair<Int, T>>(),
-        defaultFactory
-    )
 }

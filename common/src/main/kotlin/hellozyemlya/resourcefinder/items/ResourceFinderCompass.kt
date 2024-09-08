@@ -3,9 +3,8 @@ package hellozyemlya.resourcefinder.items
 import hellozyemlya.resourcefinder.ResourceFinderTexts
 import hellozyemlya.resourcefinder.items.compass.CompassData
 import hellozyemlya.resourcefinder.items.compass.CompassScanItem
-import hellozyemlya.resourcefinder.items.storage.createItemStorageCache
+import hellozyemlya.resourcefinder.items.storage.itemStorageCache
 import hellozyemlya.resourcefinder.registry.ResourceRegistry
-import kotlinx.serialization.Serializable
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
 import net.minecraft.client.item.TooltipContext
 import net.minecraft.entity.Entity
@@ -24,13 +23,6 @@ import kotlin.collections.component1
 import kotlin.collections.component2
 import kotlin.jvm.optionals.getOrNull
 
-@Serializable
-data class CompassNbtV0(
-    var compassId: Int = -1,
-    var data: CompassData? = null,
-)
-
-
 class ResourceFinderCompass(settings: Settings) : Item(settings) {
     private var minecraftServer: MinecraftServer? = null
 
@@ -42,7 +34,7 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
         const val DEFAULT_SCAN_TIMEOUT = 10
     }
 
-    public val storage = createItemStorageCache<CompassData>(
+    public val storage = itemStorageCache<CompassData>(
         this,
         "compass-storage",
         { CompassData() }

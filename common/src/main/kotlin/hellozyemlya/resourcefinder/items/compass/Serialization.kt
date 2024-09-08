@@ -14,6 +14,7 @@ import kotlinx.serialization.encoding.encodeStructure
 import kotlinx.serialization.modules.SerializersModule
 import net.minecraft.item.Item
 import net.minecraft.registry.Registries
+import net.minecraft.util.Identifier
 import net.minecraft.util.math.BlockPos
 
 object BlockPosSerializer : KSerializer<BlockPos> {
@@ -68,13 +69,32 @@ object ItemNetworkSerializer : KSerializer<Item> {
     override fun serialize(encoder: Encoder, value: Item) {
         encoder.encodeInt(Registries.ITEM.getRawId(value))
     }
+}
 
+
+object ItemNbtSerializer : KSerializer<Item> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("Item", PrimitiveKind.STRING)
+
+    override fun deserialize(decoder: Decoder): Item {
+        val stringId = decoder.decodeString()
+        val id = Identifier.tryParse(stringId)
+        if (id != null) {
+            return Registries.ITEM.get(id)
+        } else {
+            throw SerializationException("Unknown Item ID $stringId")
+        }
+    }
+
+    override fun serialize(encoder: Encoder, value: Item) {
+        encoder.encodeString(Registries.ITEM.getId(value).toString())
+    }
 }
 
 val NETWORK_SERIALIZATION_MODULE = SerializersModule {
     contextual(Item::class, ItemNetworkSerializer)
     contextual(BlockPos::class, BlockPosSerializer)
 }
+
 
 @OptIn(ExperimentalSerializationApi::class)
 val NETWORK_CBOR = Cbor {

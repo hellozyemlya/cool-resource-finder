@@ -96,7 +96,6 @@ class ResourceFinderChargeRecipe(id: Identifier, category: CraftingRecipeCategor
                 }
             }
             true to Unit
-
         }
 
         return result

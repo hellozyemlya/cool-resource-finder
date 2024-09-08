@@ -45,6 +45,10 @@ loom {
     }
 }
 
+tasks.named<Test>("test") {
+    useJUnitPlatform()
+}
+
 sourceSets {
     main {
         java {
@@ -74,6 +78,13 @@ sourceSets {
             srcDir("../common/src/client/resources")
         }
     }
+    test {
+        compileClasspath += named("client").get().compileClasspath
+        runtimeClasspath += named("client").get().runtimeClasspath
+        kotlin {
+            srcDir("../common/src/test/kotlin")
+        }
+    }
 }
 
 val minecraft_version: String by project
@@ -92,6 +103,8 @@ dependencies {
     modImplementation("net.fabricmc:fabric-language-kotlin:${fabric_kotlin_version}")
     modImplementation("net.silkmc:silk-network:${silkmc_version}")
     modImplementation("net.silkmc:silk-persistence:${silkmc_version}")
+
+    testImplementation("net.fabricmc:fabric-loader-junit:${loader_version}")
 }
 
 tasks {

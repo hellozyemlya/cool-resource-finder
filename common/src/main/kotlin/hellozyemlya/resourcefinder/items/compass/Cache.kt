@@ -10,12 +10,7 @@ import net.minecraft.util.math.BlockPos
 data class CompassScanItem(var lifetimeTicks: Int, @Contextual var target: BlockPos? = null, var color: Int = 0)
 
 @Serializable
-data class CompassData(var scanTimeoutTicks: Int = 0, val scanList: HashMap<@Contextual Item, CompassScanItem> = hashMapOf())
-
-@Serializable
-data class ResourceFinderCompassCache(
-    val instances: HashMap<Int, CompassData> = hashMapOf(),
-    private var nextId: Int = 0
-) {
-    fun getNextId(): Int = ++nextId
-}
+data class CompassData(
+    var scanTimeoutTicks: Int = 0,
+    val scanList: MutableMap<@Contextual Item, CompassScanItem> = mutableMapOf()
+)
