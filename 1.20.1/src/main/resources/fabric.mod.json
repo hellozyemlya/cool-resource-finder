@@ -41,8 +41,5 @@
     "java": ">=17",
     "fabric-api": "*",
     "fabric-language-kotlin": ">=1.9.0"
-  },
-  "suggests": {
-    "another-mod": "*"
   }
 }
