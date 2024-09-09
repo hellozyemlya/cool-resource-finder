@@ -7,5 +7,7 @@ class ModDataGenerator : DataGeneratorEntrypoint {
     override fun onInitializeDataGenerator(fabricDataGenerator: FabricDataGenerator) {
         val pack = fabricDataGenerator.createPack()
         pack.addProvider(::ModRecipeProvider)
+        pack.addProvider(::UaLangProvider)
+        pack.addProvider(::EngLangProvider)
     }
 }
