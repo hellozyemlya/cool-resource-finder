@@ -18,30 +18,30 @@ fun FabricLanguageProvider.TranslationBuilder.add(text: MutableText, value: Stri
     throw IllegalArgumentException("'text' is not translatable")
 }
 
-class EngLangProvider(dataGenerator: FabricDataOutput) : FabricLanguageProvider(dataGenerator, "en_us") {
-    override fun generateTranslations(translationBuilder: TranslationBuilder) {
-        translationBuilder.add(ResourceFinder.RESOURCE_FINDER_ITEM, "Resource Scanner")
-        translationBuilder.add(ResourceFinder.RESOURCE_FINDER_ITEM_GROUP, "Resource Scanner")
-        translationBuilder.add(ResourceFinderTexts.SCAN_FOR, "Finds")
-        translationBuilder.add(ResourceFinderTexts.SCAN_JOIN, "for")
-    }
-}
-
-class UaLangProvider(dataGenerator: FabricDataOutput) : FabricLanguageProvider(dataGenerator, "uk_ua") {
-    override fun generateTranslations(translationBuilder: TranslationBuilder) {
-        translationBuilder.add(ResourceFinder.RESOURCE_FINDER_ITEM, "Сканер Ресурсів")
-        translationBuilder.add(ResourceFinder.RESOURCE_FINDER_ITEM_GROUP, "Сканер Ресурсів")
-        translationBuilder.add(ResourceFinderTexts.SCAN_FOR, "Знаходить")
-        translationBuilder.add(ResourceFinderTexts.SCAN_JOIN, "впродовж")
-    }
-}
+//class EngLangProvider(dataGenerator: FabricDataOutput) : FabricLanguageProvider(dataGenerator, "en_us") {
+//    override fun generateTranslations(translationBuilder: TranslationBuilder) {
+//        translationBuilder.add(ResourceFinder.RESOURCE_FINDER_ITEM, "Resource Scanner")
+//        translationBuilder.add(ResourceFinder.RESOURCE_FINDER_ITEM_GROUP, "Resource Scanner")
+//        translationBuilder.add(ResourceFinderTexts.SCAN_FOR, "Finds")
+//        translationBuilder.add(ResourceFinderTexts.SCAN_JOIN, "for")
+//    }
+//}
+//
+//class UaLangProvider(dataGenerator: FabricDataOutput) : FabricLanguageProvider(dataGenerator, "uk_ua") {
+//    override fun generateTranslations(translationBuilder: TranslationBuilder) {
+//        translationBuilder.add(ResourceFinder.RESOURCE_FINDER_ITEM, "Сканер Ресурсів")
+//        translationBuilder.add(ResourceFinder.RESOURCE_FINDER_ITEM_GROUP, "Сканер Ресурсів")
+//        translationBuilder.add(ResourceFinderTexts.SCAN_FOR, "Знаходить")
+//        translationBuilder.add(ResourceFinderTexts.SCAN_JOIN, "впродовж")
+//    }
+//}
 
 
 @Suppress("unused")
 object ResourceFinderDataGenerator : DataGeneratorEntrypoint {
     override fun onInitializeDataGenerator(fabricDataGenerator: FabricDataGenerator) {
-        val pack: FabricDataGenerator.Pack = fabricDataGenerator.createPack()
-        pack.addProvider(::EngLangProvider)
-        pack.addProvider(::UaLangProvider)
+//        val pack: FabricDataGenerator.Pack = fabricDataGenerator.createPack()
+//        pack.addProvider(::EngLangProvider)
+//        pack.addProvider(::UaLangProvider)
     }
 }
