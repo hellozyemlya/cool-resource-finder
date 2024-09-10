@@ -184,15 +184,16 @@ subprojects {
         type = BETA
         modLoaders.add("fabric")
 
+        val version = if (project.name.endsWith(".0")) {
+            project.name.removeSuffix(".0")
+        } else {
+            project.name
+        }
+
         curseforge {
             projectId = "892065"
             accessToken = providers.environmentVariable("CURSEFORGE_TOKEN")
-            val curseforgeVersion = if (project.name.endsWith(".0")) {
-                project.name.removeSuffix(".0")
-            } else {
-                project.name
-            }
-            minecraftVersions.add(curseforgeVersion)
+            minecraftVersions.add(version)
 
             requires {
                 slug = "fabric-api"
@@ -204,7 +205,7 @@ subprojects {
         modrinth {
             projectId = "eKgd4diD"
             accessToken = providers.environmentVariable("MODRINTH_TOKEN")
-            minecraftVersions.add(project.name)
+            minecraftVersions.add(version)
 
             requires {
                 // fabric-api
