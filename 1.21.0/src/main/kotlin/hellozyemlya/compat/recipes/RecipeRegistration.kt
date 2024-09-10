@@ -12,21 +12,21 @@ import net.minecraft.registry.RegistryWrapper
 import net.minecraft.util.Identifier
 import net.minecraft.world.World
 
-class CustomRecipe<T>(
-    private val recipe: ICompatCustomRecipe,
+class CustomRecipe<T : ICompatCustomRecipe>(
+    private val recipe: T?,
     private val serializer: () -> RecipeSerializer<CustomRecipe<T>>,
     category: CraftingRecipeCategory
 ) : SpecialCraftingRecipe(category) {
     override fun matches(input: CraftingRecipeInput, world: World?): Boolean {
-        return recipe.matches(input.stacks)
+        return recipe?.matches(input.stacks) ?: false
     }
 
     override fun craft(input: CraftingRecipeInput, lookup: RegistryWrapper.WrapperLookup?): ItemStack {
-        return recipe.craft(input.stacks)
+        return recipe?.craft(input.stacks) ?: ItemStack.EMPTY
     }
 
     override fun fits(width: Int, height: Int): Boolean {
-        return recipe.fits(width, height)
+        return recipe?.fits(width, height) ?: false
     }
 
     override fun getSerializer(): RecipeSerializer<*> {

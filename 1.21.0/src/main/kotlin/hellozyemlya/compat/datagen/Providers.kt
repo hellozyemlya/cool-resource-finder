@@ -1,11 +1,16 @@
 package hellozyemlya.compat.datagen
 
+import hellozyemlya.compat.recipes.CustomRecipe
+import hellozyemlya.compat.recipes.ICompatCustomRecipe
 import net.fabricmc.fabric.api.datagen.v1.FabricDataOutput
 import net.fabricmc.fabric.api.datagen.v1.provider.FabricLanguageProvider
 import net.fabricmc.fabric.api.datagen.v1.provider.FabricLanguageProvider.TranslationBuilder
 import net.fabricmc.fabric.api.datagen.v1.provider.FabricRecipeProvider
 import net.minecraft.data.server.recipe.RecipeExporter
+import net.minecraft.recipe.RecipeSerializer
+import net.minecraft.recipe.book.CraftingRecipeCategory
 import net.minecraft.registry.RegistryWrapper
+import net.minecraft.util.Identifier
 import java.util.concurrent.CompletableFuture
 
 fun createLangProvider(
@@ -32,4 +37,16 @@ fun createRecipeProvider(apply: RecipeExporter.() -> Unit): (dataGenerator: Fabr
             }
         }
     }
+}
+
+fun <T : ICompatCustomRecipe> RecipeExporter.provideCustomRecipe(
+    id: Identifier,
+    category: CraftingRecipeCategory,
+    serializer: RecipeSerializer<CustomRecipe<T>>
+) {
+    val recipeStub = CustomRecipe(null, { serializer }, category)
+    this.accept(
+        id, recipeStub,
+        null
+    )
 }

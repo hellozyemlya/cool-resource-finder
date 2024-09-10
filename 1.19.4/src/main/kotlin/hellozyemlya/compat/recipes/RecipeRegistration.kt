@@ -1,6 +1,5 @@
 package hellozyemlya.compat.recipes
 
-import hellozyemlya.resourcefinder.MOD_NAMESPACE
 import net.minecraft.inventory.CraftingInventory
 import net.minecraft.inventory.Inventory
 import net.minecraft.item.ItemStack

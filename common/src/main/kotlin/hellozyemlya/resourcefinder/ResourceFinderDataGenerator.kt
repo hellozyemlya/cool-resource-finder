@@ -2,6 +2,7 @@ package hellozyemlya.resourcefinder
 
 import hellozyemlya.compat.datagen.createLangProvider
 import hellozyemlya.compat.datagen.createRecipeProvider
+import hellozyemlya.compat.datagen.provideCustomRecipe
 import hellozyemlya.compat.recipes.CustomRecipe
 import hellozyemlya.resourcefinder.items.recipes.ResourceFinderChargeRecipe
 import net.fabricmc.fabric.api.datagen.v1.DataGeneratorEntrypoint
@@ -54,14 +55,10 @@ object ResourceFinderDataGenerator : DataGeneratorEntrypoint {
                 .criterion(hasItem(Items.COMPARATOR), conditionsFromItem(Items.COMPARATOR))
                 .criterion(hasItem(Items.COMPASS), conditionsFromItem(Items.COMPASS))
                 .offerTo(this, Identifier.of(MOD_NAMESPACE, "resource_finder_compass_recipe"))
-
-            this.accept(
-                Identifier.of(MOD_NAMESPACE, "resource_finder_charge_recipe"), CustomRecipe(
-                    ResourceFinderChargeRecipe(),
-                    { ResourceFinder.RECHARGE_RECIPE_SERIALIZER },
-                    CraftingRecipeCategory.MISC
-                ),
-                null
+            this.provideCustomRecipe(
+                Identifier.of(MOD_NAMESPACE, "resource_finder_charge_recipe")!!,
+                CraftingRecipeCategory.MISC,
+                ResourceFinder.RECHARGE_RECIPE_SERIALIZER
             )
         })
     }
