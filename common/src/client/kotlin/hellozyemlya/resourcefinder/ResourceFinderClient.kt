@@ -227,7 +227,7 @@ object ResourceFinderClient : ClientModInitializer {
 
     override fun onInitializeClient() {
         // capture LivingEntity
-        ModelPredicateProviderRegistry.register(ResourceFinder.RESOURCE_FINDER_ITEM, Identifier.of("hack","")) { _: ItemStack, _: ClientWorld?, livingEntity: LivingEntity?, _: Int ->
+        ModelPredicateProviderRegistry.register(ResourceFinder.RESOURCE_FINDER_ITEM, Identifier.of("minecraft", "hack")) { _: ItemStack, _: ClientWorld?, livingEntity: LivingEntity?, _: Int ->
             lastEntity = livingEntity
             0f
         }

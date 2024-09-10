@@ -2,6 +2,8 @@ package hellozyemlya.resourcefinder
 
 import hellozyemlya.compat.datagen.createLangProvider
 import hellozyemlya.compat.datagen.createRecipeProvider
+import hellozyemlya.compat.recipes.CustomRecipe
+import hellozyemlya.resourcefinder.items.recipes.ResourceFinderChargeRecipe
 import net.fabricmc.fabric.api.datagen.v1.DataGeneratorEntrypoint
 import net.fabricmc.fabric.api.datagen.v1.FabricDataGenerator
 import net.fabricmc.fabric.api.datagen.v1.provider.FabricLanguageProvider
@@ -9,6 +11,7 @@ import net.minecraft.data.server.recipe.RecipeProvider.conditionsFromItem
 import net.minecraft.data.server.recipe.RecipeProvider.hasItem
 import net.minecraft.data.server.recipe.ShapedRecipeJsonBuilder
 import net.minecraft.item.Items
+import net.minecraft.recipe.book.CraftingRecipeCategory
 import net.minecraft.recipe.book.RecipeCategory
 import net.minecraft.text.MutableText
 import net.minecraft.text.TranslatableTextContent
@@ -51,6 +54,15 @@ object ResourceFinderDataGenerator : DataGeneratorEntrypoint {
                 .criterion(hasItem(Items.COMPARATOR), conditionsFromItem(Items.COMPARATOR))
                 .criterion(hasItem(Items.COMPASS), conditionsFromItem(Items.COMPASS))
                 .offerTo(this, Identifier.of(MOD_NAMESPACE, "resource_finder_compass_recipe"))
+
+            this.accept(
+                Identifier.of(MOD_NAMESPACE, "resource_finder_charge_recipe"), CustomRecipe(
+                    ResourceFinderChargeRecipe(),
+                    { ResourceFinder.RECHARGE_RECIPE_SERIALIZER },
+                    CraftingRecipeCategory.MISC
+                ),
+                null
+            )
         })
     }
 }
