@@ -181,7 +181,6 @@ subprojects {
     configure<ModPublishExtension> {
         file = project.tasks.named<RemapJarTask>("remapJar").get().archiveFile.get().asFile
         changelog = mod_changelog
-        dryRun = true
         type = BETA
         modLoaders.add("fabric")
 
