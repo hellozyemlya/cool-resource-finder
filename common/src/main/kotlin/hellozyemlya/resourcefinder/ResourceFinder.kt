@@ -1,5 +1,6 @@
 package hellozyemlya.resourcefinder
 
+import hellozyemlya.compat.recipes.registerCustomRecipe
 import hellozyemlya.mccompat.ItemGroupKeyAlias
 import hellozyemlya.mccompat.createItemGroup
 import hellozyemlya.resourcefinder.items.ResourceFinderCompass
@@ -23,17 +24,8 @@ object ResourceFinder : ModInitializer {
 
     val RESOURCE_FINDER_ITEM_GROUP: ItemGroupKeyAlias = createItemGroup(RESOURCE_FINDER_ITEM.defaultStack, "resource_finder", "itemGroup.$MOD_NAMESPACE.resource_finder_group")
 
-    val RESOURCE_FINDER_REPAIR_SERIALIZER: RecipeSerializer<ResourceFinderChargeRecipe> = Registry.register(
-            Registries.RECIPE_SERIALIZER,
-            Identifier(MOD_NAMESPACE, "crafting_special_resource_finder_charge"),
-            SpecialRecipeSerializer { id, category ->
-                ResourceFinderChargeRecipe(
-                        id,
-                        category
-                )
-            })
-
     override fun onInitialize() {
+        registerCustomRecipe(Identifier.of(MOD_NAMESPACE, "crafting_special_resource_finder_charge")!!, ResourceFinderChargeRecipe())
         ItemGroupEvents.modifyEntriesEvent(RESOURCE_FINDER_ITEM_GROUP).register {
             it.add(RESOURCE_FINDER_ITEM)
         }

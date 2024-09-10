@@ -28,6 +28,65 @@ repositories {
 version = "1.0.0"
 group = "junk"
 
+fun sourceSetsOfRoot(root: String): Map<String, Map<String, String>> {
+    return mapOf(
+        "kotlin" to mapOf(
+            "main" to "${root}/src/main/kotlin",
+            "client" to "${root}/src/client/kotlin",
+            "test" to "${root}/src/test/kotlin"
+        ),
+        "java" to mapOf(
+            "main" to "${root}/src/main/java",
+            "client" to "${root}/src/client/java",
+            "test" to "${root}/src/test/java"
+        ),
+        "resources" to mapOf(
+            "main" to "${root}/src/main/resources",
+            "client" to "${root}/src/client/resources",
+            "test" to "${root}/src/test/resources"
+        )
+    )
+}
+
+val commonSourceRoot = "${rootProject.projectDir}/common"
+val nbtComponentsSourceRoot = "${rootProject.projectDir}/common/components/nbt"
+
+val commonSourceSets = sourceSetsOfRoot(commonSourceRoot)
+val nbtComponentsSourceSets = sourceSetsOfRoot(nbtComponentsSourceRoot)
+
+
+fun Project.applySourceSets(sourceSets: Map<String, Map<String, String>>) {
+    // apply kotlin source sets
+    this.extensions.configure<KotlinJvmProjectExtension> {
+        sourceSets["kotlin"]?.forEach { (setName, setPath) ->
+            sourceSets {
+                named(setName) {
+                    kotlin {
+                        srcDir(setPath)
+                    }
+                }
+            }
+        }
+    }
+    // apply java source sets
+    project.the<SourceSetContainer>().apply {
+        sourceSets["java"]?.forEach { (setName, setPath) ->
+            named(setName) {
+                java {
+                    srcDir(setPath)
+                }
+            }
+        }
+        sourceSets["resources"]?.forEach { (setName, setPath) ->
+            named(setName) {
+                resources {
+                    srcDir(setPath)
+                }
+            }
+        }
+    }
+}
+
 subprojects {
     apply(plugin = "fabric-loom")
     apply(plugin = "org.jetbrains.kotlin.jvm")
@@ -77,52 +136,54 @@ subprojects {
         }
     }
 
-    val commonSourceRoot = "${rootProject.projectDir}/common"
+    project.applySourceSets(commonSourceSets)
+    project.applySourceSets(nbtComponentsSourceSets)
+//    val commonSourceRoot = "${rootProject.projectDir}/common"
     // apply kotlin source sets separately
-    configure<KotlinJvmProjectExtension> {
-        sourceSets {
-            named("main") {
-                kotlin {
-                    srcDir("../common/src/main/kotlin")
-                }
-            }
-            named("client") {
-                kotlin {
-                    srcDir("src/client/kotlin")
-                    srcDir("${commonSourceRoot}/src/client/kotlin")
-                }
-            }
-            named("test") {
-                kotlin {
-                    srcDir("${commonSourceRoot}/src/test/kotlin")
-                }
-            }
-        }
-    }
+//    configure<KotlinJvmProjectExtension> {
+//        sourceSets {
+//            named("main") {
+//                kotlin {
+//                    srcDir("${commonSourceRoot}/src/main/kotlin")
+//                }
+//            }
+//            named("client") {
+//                kotlin {
+//                    srcDir("src/client/kotlin")
+//                    srcDir("${commonSourceRoot}/src/client/kotlin")
+//                }
+//            }
+//            named("test") {
+//                kotlin {
+//                    srcDir("${commonSourceRoot}/src/test/kotlin")
+//                }
+//            }
+//        }
+//    }
 
     // apply other source sets
     project.the<SourceSetContainer>().apply {
-        named("main") {
-            java {
-                srcDir("${commonSourceRoot}/src/main/java")
-            }
-            // additional common resources
-            resources {
-                srcDir("${commonSourceRoot}/src/main/resources")
-                srcDir("src/main/generated-${project.name}")
-            }
-        }
-        named("client") {
-            java {
-                srcDir("src/client/java")
-                srcDir("${commonSourceRoot}/src/client/java")
-            }
-            // additional resources for client
-            resources {
-                srcDir("src/client/resources")
-                srcDir("${commonSourceRoot}/src/client/resources")
-            }
-        }
+//        named("main") {
+//            java {
+//                srcDir("${commonSourceRoot}/src/main/java")
+//            }
+//            // additional common resources
+//            resources {
+//                srcDir("${commonSourceRoot}/src/main/resources")
+//                srcDir("src/main/generated-${project.name}")
+//            }
+//        }
+//        named("client") {
+//            java {
+//                srcDir("src/client/java")
+//                srcDir("${commonSourceRoot}/src/client/java")
+//            }
+//            // additional resources for client
+//            resources {
+//                srcDir("src/client/resources")
+//                srcDir("${commonSourceRoot}/src/client/resources")
+//            }
+//        }
         named("test") {
             compileClasspath += named("client").get().compileClasspath
             runtimeClasspath += named("client").get().runtimeClasspath

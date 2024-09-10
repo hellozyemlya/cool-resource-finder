@@ -1,8 +1,8 @@
 package hellozyemlya.resourcefinder
 
 import hellozyemlya.common.pushPop
-import hellozyemlya.resourcefinder.items.getScanList
-import hellozyemlya.resourcefinder.items.getTargetList
+import hellozyemlya.compat.compatGetOrDefault
+import hellozyemlya.resourcefinder.items.CompassComponents
 import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.fabric.api.client.model.loading.v1.ModelLoadingPlugin
 import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry
@@ -25,6 +25,7 @@ import net.minecraft.util.math.RotationAxis
 import net.minecraft.util.math.Vec3d
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
+import kotlin.jvm.optionals.getOrNull
 import kotlin.math.atan2
 
 @Suppress("unused")
@@ -72,16 +73,17 @@ object ResourceFinderClient : ClientModInitializer {
     ) {
         var topIdx = -1
         var botIdx = -1
-        stack.getTargetList().forEachIndexed { idx, targetRecord ->
+        val scanRecords = stack.compatGetOrDefault(CompassComponents.SCAN_TARGETS_COMPONENT, mapOf()).values
+        scanRecords.forEachIndexed { idx, targetRecord ->
+            val blockPos = targetRecord.target.getOrNull() ?: return@forEachIndexed
             quadColorOverride = targetRecord.color
-            val blockPost = targetRecord.target
             matrices.pushPop {
                 matrices.translate(0f, (idx * 0.01f), 0f)
                 matrices.multiply(
                         RotationAxis.POSITIVE_Y.rotationDegrees(
                                 getArrowAngle(
                                         entity,
-                                        blockPost
+                                        blockPos
                                 )
                         )
                 )
@@ -101,12 +103,12 @@ object ResourceFinderClient : ClientModInitializer {
             if (mode != ModelTransformationMode.GUI) {
                 matrices.pushPop {
                     val renderIndicator = when {
-                        entity.blockPos.y > blockPost.y -> {
+                        entity.blockPos.y > blockPos.y -> {
                             matrices.translate(0f, 0f, -++topIdx * 0.013f)
                             true
                         }
 
-                        entity.blockPos.y < blockPost.y -> {
+                        entity.blockPos.y < blockPos.y -> {
                             matrices.multiply(
                                     RotationAxis.POSITIVE_Y.rotation(Math.PI.toFloat())
                             )
@@ -141,12 +143,12 @@ object ResourceFinderClient : ClientModInitializer {
             overlay: Int,
             renderer: ItemRenderer
     ) {
-        stack.getScanList().forEachIndexed { idx, scanRecord ->
+        val scanRecords = stack.compatGetOrDefault(CompassComponents.SCAN_TARGETS_COMPONENT, mapOf()).values
+        scanRecords.forEachIndexed { idx, scanRecord ->
             quadColorOverride = scanRecord.color
             matrices.push()
             matrices.translate(0f, (idx * 0.01f), 0f)
             matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(25f * idx))
-            // TODO set color here somehow
             renderer.renderItem(
                     stack,
                     ModelTransformationMode.NONE,
