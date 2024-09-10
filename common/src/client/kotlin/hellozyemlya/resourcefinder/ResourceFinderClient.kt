@@ -1,10 +1,12 @@
 package hellozyemlya.resourcefinder
 
 import hellozyemlya.common.pushPop
+import hellozyemlya.compat.client.compatTickDelta
 import hellozyemlya.compat.compatGetOrDefault
+import hellozyemlya.compat.registries.registerFakeModel
+import hellozyemlya.compat.registries.transformTintRgb
 import hellozyemlya.resourcefinder.items.CompassComponents
 import net.fabricmc.api.ClientModInitializer
-import net.fabricmc.fabric.api.client.model.loading.v1.ModelLoadingPlugin
 import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry
 import net.fabricmc.fabric.api.client.rendering.v1.ColorProviderRegistry
 import net.minecraft.client.MinecraftClient
@@ -12,7 +14,6 @@ import net.minecraft.client.item.ModelPredicateProviderRegistry
 import net.minecraft.client.render.VertexConsumerProvider
 import net.minecraft.client.render.item.ItemRenderer
 import net.minecraft.client.render.model.json.ModelTransformationMode
-import net.minecraft.client.util.ModelIdentifier
 import net.minecraft.client.util.math.MatrixStack
 import net.minecraft.client.world.ClientWorld
 import net.minecraft.entity.Entity
@@ -30,12 +31,9 @@ import kotlin.math.atan2
 
 @Suppress("unused")
 object ResourceFinderClient : ClientModInitializer {
-    private val ARROW_ITEM_ID = Identifier(MOD_NAMESPACE, "resource_finder_compass_arrow")
-    private val ARROW_MODEL_ID = ModelIdentifier(ARROW_ITEM_ID, "inventory")
-    private val BASE_ITEM_ID = Identifier(MOD_NAMESPACE, "resource_finder_compass_base")
-    private val BASE_MODEL_ID = ModelIdentifier(BASE_ITEM_ID, "inventory")
-    private val INDICATOR_ITEM_ID = Identifier(MOD_NAMESPACE, "resource_finder_compass_indicator")
-    private val INDICATOR_MODEL_ID = ModelIdentifier(INDICATOR_ITEM_ID, "inventory")
+    private val ARROW_MODEL_ID = registerFakeModel(MOD_NAMESPACE, "resource_finder_compass_arrow")
+    private val BASE_MODEL_ID = registerFakeModel(MOD_NAMESPACE, "resource_finder_compass_base")
+    private val INDICATOR_MODEL_ID = registerFakeModel(MOD_NAMESPACE, "resource_finder_compass_indicator")
 
     private var quadColorOverride: Int = -1
     private var lastEntity: LivingEntity? = null
@@ -43,8 +41,8 @@ object ResourceFinderClient : ClientModInitializer {
     private fun getAngleTo(entity: Entity, pos: BlockPos): Double {
         val vec3d = Vec3d.ofCenter(pos)
 
-        val sX = MathHelper.lerp(MinecraftClient.getInstance().tickDelta.toDouble(), entity.prevX, entity.x)
-        val sZ = MathHelper.lerp(MinecraftClient.getInstance().tickDelta.toDouble(), entity.prevZ, entity.z)
+        val sX = MathHelper.lerp(MinecraftClient.getInstance().compatTickDelta.toDouble(), entity.prevX, entity.x)
+        val sZ = MathHelper.lerp(MinecraftClient.getInstance().compatTickDelta.toDouble(), entity.prevZ, entity.z)
 
         return atan2(vec3d.getZ() - sZ, vec3d.getX() - sX) / 6.2831854820251465
     }
@@ -228,20 +226,15 @@ object ResourceFinderClient : ClientModInitializer {
     }
 
     override fun onInitializeClient() {
-        // load compass parts models
-        ModelLoadingPlugin.register { ctx ->
-            ctx.addModels(BASE_MODEL_ID, INDICATOR_MODEL_ID, ARROW_MODEL_ID)
-        }
-
         // capture LivingEntity
-        ModelPredicateProviderRegistry.register(ResourceFinder.RESOURCE_FINDER_ITEM, Identifier("hack")) { _: ItemStack, _: ClientWorld?, livingEntity: LivingEntity?, _: Int ->
+        ModelPredicateProviderRegistry.register(ResourceFinder.RESOURCE_FINDER_ITEM, Identifier.of("hack","")) { _: ItemStack, _: ClientWorld?, livingEntity: LivingEntity?, _: Int ->
             lastEntity = livingEntity
             0f
         }
 
         // override quad colors
         ColorProviderRegistry.ITEM.register(
-                { _: ItemStack, _: Int -> quadColorOverride },
+                { _: ItemStack, _: Int -> transformTintRgb(quadColorOverride) },
                 ResourceFinder.RESOURCE_FINDER_ITEM
         )
 

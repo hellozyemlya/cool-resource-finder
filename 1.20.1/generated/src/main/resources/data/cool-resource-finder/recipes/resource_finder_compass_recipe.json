@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "#": {
+      "item": "minecraft:compass"
+    },
+    "C": {
+      "item": "minecraft:comparator"
+    }
+  },
+  "pattern": [
+    " C ",
+    "C#C",
+    " C "
+  ],
+  "result": {
+    "item": "cool-resource-finder:resource_finder_compass"
+  },
+  "show_notification": true
+}

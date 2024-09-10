@@ -3,12 +3,12 @@ package hellozyemlya.resourcefinder.items
 import hellozyemlya.compat.compatGet
 import hellozyemlya.compat.compatGetOrDefault
 import hellozyemlya.compat.compatSet
+import hellozyemlya.compat.formatTicks
+import hellozyemlya.compat.items.CompatItem
 import hellozyemlya.resourcefinder.ResourceFinderTexts
 import hellozyemlya.resourcefinder.registry.ResourceRegistry
-import net.minecraft.client.item.TooltipContext
 import net.minecraft.entity.Entity
 import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.item.Item
 import net.minecraft.item.ItemStack
 import net.minecraft.registry.Registries
 import net.minecraft.text.Style
@@ -21,21 +21,16 @@ import net.minecraft.util.StringHelper
 import net.minecraft.world.World
 
 // TODO calculate ticks and time based on tick rate
-class ResourceFinderCompass(settings: Settings) : Item(settings) {
+class ResourceFinderCompass(settings: Settings) : CompatItem(settings) {
     companion object {
         const val DEFAULT_SCAN_TIMEOUT = 10
     }
 
-    override fun allowNbtUpdateAnimation(
-        player: PlayerEntity?,
-        hand: Hand?,
-        oldStack: ItemStack?,
-        newStack: ItemStack?
-    ): Boolean {
+    override fun compatAllowAnimations(): Boolean {
         return false
     }
 
-    override fun appendTooltip(stack: ItemStack, world: World?, tooltip: MutableList<Text?>, context: TooltipContext?) {
+    override fun compatAppendToolip(stack: ItemStack, tooltip: MutableList<Text>, tickRate: Float) {
         val scanTargets = stack.compatGet(CompassComponents.SCAN_TARGETS_COMPONENT)
         if (!scanTargets.isNullOrEmpty()) {
             scanTargets.forEach { (key, value) ->
@@ -49,14 +44,13 @@ class ResourceFinderCompass(settings: Settings) : Item(settings) {
                             ResourceFinderTexts.SCAN_FOR,
                             blockName,
                             ResourceFinderTexts.SCAN_JOIN,
-                            Text.of(StringHelper.formatTicks(value.lifetimeTicks))
+                            Text.of(formatTicks(value.lifetimeTicks, tickRate))
                         ), Text.of(" ")
                     )
                 )
             }
         }
     }
-
 
     override fun inventoryTick(stack: ItemStack?, world: World?, entity: Entity, slot: Int, selected: Boolean) {
         if (selected && stack != null && world != null) {

@@ -4,7 +4,7 @@ import net.fabricmc.loom.task.RemapJarTask
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 
 plugins {
-    id("fabric-loom") version "1.3-SNAPSHOT" apply false
+    id("fabric-loom") version "1.7.4" apply false
     id("org.jetbrains.kotlin.jvm") version "1.9.0" apply false
     id("org.jetbrains.kotlin.plugin.serialization") version "1.9.0" apply false
     id("me.modmuss50.mod-publish-plugin") version "0.1.1" apply false
@@ -50,10 +50,11 @@ fun sourceSetsOfRoot(root: String): Map<String, Map<String, String>> {
 
 val commonSourceRoot = "${rootProject.projectDir}/common"
 val nbtComponentsSourceRoot = "${rootProject.projectDir}/common/components/nbt"
+val nativeComponentsSourceRoot = "${rootProject.projectDir}/common/components/native"
 
 val commonSourceSets = sourceSetsOfRoot(commonSourceRoot)
 val nbtComponentsSourceSets = sourceSetsOfRoot(nbtComponentsSourceRoot)
-
+val nativeComponentsSourceSets = sourceSetsOfRoot(nativeComponentsSourceRoot)
 
 fun Project.applySourceSets(sourceSets: Map<String, Map<String, String>>) {
     // apply kotlin source sets
@@ -68,7 +69,7 @@ fun Project.applySourceSets(sourceSets: Map<String, Map<String, String>>) {
             }
         }
     }
-    // apply java source sets
+    // apply java & resources source sets
     project.the<SourceSetContainer>().apply {
         sourceSets["java"]?.forEach { (setName, setPath) ->
             named(setName) {
@@ -85,6 +86,18 @@ fun Project.applySourceSets(sourceSets: Map<String, Map<String, String>>) {
             }
         }
     }
+}
+
+fun compareSemVer(version1: String, version2: String): Int {
+    val v1 = version1.split(".").map { it.toInt() }
+    val v2 = version2.split(".").map { it.toInt() }
+
+    for (i in 0..2) {
+        if (v1[i] != v2[i]) {
+            return v1[i].compareTo(v2[i])
+        }
+    }
+    return 0
 }
 
 subprojects {
@@ -112,7 +125,7 @@ subprojects {
                 inherit(named("server").get())
                 name = "Data Generation"
                 vmArg("-Dfabric-api.datagen")
-                vmArg("-Dfabric-api.datagen.output-dir=${file("src/main/generated-${project.name}")}")
+                vmArg("-Dfabric-api.datagen.output-dir=${file("generated/src/main/resources")}")
                 vmArg("-Dfabric-api.datagen.modid=cool-resource-finder")
                 runDir = "build/datagen"
             }
@@ -137,58 +150,15 @@ subprojects {
     }
 
     project.applySourceSets(commonSourceSets)
-    project.applySourceSets(nbtComponentsSourceSets)
-//    val commonSourceRoot = "${rootProject.projectDir}/common"
-    // apply kotlin source sets separately
-//    configure<KotlinJvmProjectExtension> {
-//        sourceSets {
-//            named("main") {
-//                kotlin {
-//                    srcDir("${commonSourceRoot}/src/main/kotlin")
-//                }
-//            }
-//            named("client") {
-//                kotlin {
-//                    srcDir("src/client/kotlin")
-//                    srcDir("${commonSourceRoot}/src/client/kotlin")
-//                }
-//            }
-//            named("test") {
-//                kotlin {
-//                    srcDir("${commonSourceRoot}/src/test/kotlin")
-//                }
-//            }
-//        }
-//    }
 
-    // apply other source sets
-    project.the<SourceSetContainer>().apply {
-//        named("main") {
-//            java {
-//                srcDir("${commonSourceRoot}/src/main/java")
-//            }
-//            // additional common resources
-//            resources {
-//                srcDir("${commonSourceRoot}/src/main/resources")
-//                srcDir("src/main/generated-${project.name}")
-//            }
-//        }
-//        named("client") {
-//            java {
-//                srcDir("src/client/java")
-//                srcDir("${commonSourceRoot}/src/client/java")
-//            }
-//            // additional resources for client
-//            resources {
-//                srcDir("src/client/resources")
-//                srcDir("${commonSourceRoot}/src/client/resources")
-//            }
-//        }
-        named("test") {
-            compileClasspath += named("client").get().compileClasspath
-            runtimeClasspath += named("client").get().runtimeClasspath
-        }
+    val componentsSourceSet = when {
+        compareSemVer("1.20.5", project.name) > 0 -> nbtComponentsSourceSets
+        compareSemVer("1.20.5", project.name) < 0 -> nativeComponentsSourceSets
+        else -> nativeComponentsSourceSets
     }
+    project.applySourceSets(componentsSourceSet)
+    // include generated code and resources
+    project.applySourceSets(sourceSetsOfRoot("generated"))
 
     val minecraft_version: String by project
     val yarn_mappings: String by project
