@@ -187,7 +187,12 @@ subprojects {
         curseforge {
             projectId = "892065"
             accessToken = providers.environmentVariable("CURSEFORGE_TOKEN")
-            minecraftVersions.add(project.name)
+            val curseforgeVersion = if (project.name.endsWith(".0")) {
+                project.name.removeSuffix(".0")
+            } else {
+                project.name
+            }
+            minecraftVersions.add(curseforgeVersion)
 
             requires {
                 slug = "fabric-api"
@@ -213,4 +218,5 @@ subprojects {
     }
 
     project.tasks.named("publishCurseforge").get().dependsOn(project.tasks.named("remapJar").get())
-    project.tasks.named("publishModrinth").get().dependsOn(project.tasks.named("remapJar").get())}
+    project.tasks.named("publishModrinth").get().dependsOn(project.tasks.named("remapJar").get())
+}
