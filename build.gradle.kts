@@ -2,6 +2,7 @@ import me.modmuss50.mpp.ModPublishExtension
 import net.fabricmc.loom.api.LoomGradleExtensionAPI
 import net.fabricmc.loom.task.RemapJarTask
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
+import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.util.archivesName
 
 plugins {
     id("fabric-loom") version "1.7.4" apply false
@@ -108,8 +109,13 @@ subprojects {
 
     val mod_version: String by project
     val maven_group: String by project
+    val archives_base_name: String by project
     version = mod_version
     group = maven_group
+
+    project.configure<BasePluginExtension> {
+        archivesName = "${archives_base_name}-mc-${project.name}"
+    }
 
     project.configure<LoomGradleExtensionAPI> {
         splitEnvironmentSourceSets()
