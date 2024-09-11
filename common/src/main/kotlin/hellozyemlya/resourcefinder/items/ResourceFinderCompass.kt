@@ -1,24 +1,21 @@
 package hellozyemlya.resourcefinder.items
 
 import hellozyemlya.compat.compatGet
-import hellozyemlya.compat.compatGetOrDefault
 import hellozyemlya.compat.compatSet
 import hellozyemlya.compat.formatTicks
 import hellozyemlya.compat.items.CompatItem
 import hellozyemlya.resourcefinder.ResourceFinderTexts
 import hellozyemlya.resourcefinder.registry.ResourceRegistry
 import net.minecraft.entity.Entity
-import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.item.ItemStack
 import net.minecraft.registry.Registries
 import net.minecraft.text.Style
 import net.minecraft.text.Text
 import net.minecraft.text.TextColor
 import net.minecraft.text.Texts
-import net.minecraft.util.Hand
 import net.minecraft.util.Identifier
-import net.minecraft.util.StringHelper
 import net.minecraft.world.World
+import java.util.*
 
 // TODO calculate ticks and time based on tick rate
 class ResourceFinderCompass(settings: Settings) : CompatItem(settings) {
@@ -52,16 +49,33 @@ class ResourceFinderCompass(settings: Settings) : CompatItem(settings) {
         }
     }
 
+    private data class EntityTicker(var lastServerTick: Int = -1, var currentTicks: Int = 0)
+
+    private val perEntityTicker = mutableMapOf<UUID, EntityTicker>()
+
+    private fun doTick(world: World, entity: Entity): Boolean {
+        val entityUuid = entity.uuid
+        val ticker = if (!perEntityTicker.containsKey(entityUuid)) {
+            val ticker = EntityTicker()
+            perEntityTicker[entityUuid] = ticker
+            ticker
+        } else {
+            perEntityTicker[entityUuid]!!
+        }
+
+        val serverTicks = world.server!!.ticks
+        if (ticker.lastServerTick != serverTicks) {
+            ticker.lastServerTick = serverTicks
+            ticker.currentTicks += 1
+        }
+
+        return ticker.currentTicks % DEFAULT_SCAN_TIMEOUT == 0
+    }
+
     override fun inventoryTick(stack: ItemStack?, world: World?, entity: Entity, slot: Int, selected: Boolean) {
         if (selected && stack != null && world != null) {
             if (!world.isClient) {
-                val currentScanTimeout =
-                    stack.compatGetOrDefault(
-                        CompassComponents.TICK_TIMEOUT_COMPONENT,
-                        DEFAULT_SCAN_TIMEOUT
-                    ) - 1
-
-                if (currentScanTimeout <= 0) {
+                if (doTick(world, entity)) {
                     val currentScanTargets = stack.compatGet(CompassComponents.SCAN_TARGETS_COMPONENT)
                     if (!currentScanTargets.isNullOrEmpty()) {
                         val newScanTargets = mutableMapOf<Identifier, ScanTarget>()
@@ -78,10 +92,6 @@ class ResourceFinderCompass(settings: Settings) : CompatItem(settings) {
                     }
 
                 }
-                stack.compatSet(
-                    CompassComponents.TICK_TIMEOUT_COMPONENT,
-                    if (currentScanTimeout <= 0) DEFAULT_SCAN_TIMEOUT else currentScanTimeout
-                )
             }
         }
     }

@@ -23,6 +23,6 @@ object FinderCodecs {
 }
 
 object CompassComponents {
-    val TICK_TIMEOUT_COMPONENT = compatRegisterComponent(Identifier.of(MOD_NAMESPACE, "c_scan_timeout")!!, Codec.INT)
-    val SCAN_TARGETS_COMPONENT = compatRegisterComponent(Identifier.of(MOD_NAMESPACE, "c_scan_targets")!!, FinderCodecs.SCAN_TARGETS)
+    val SCAN_TARGETS_COMPONENT =
+        compatRegisterComponent(Identifier.of(MOD_NAMESPACE, "c_scan_targets")!!, FinderCodecs.SCAN_TARGETS)
 }
