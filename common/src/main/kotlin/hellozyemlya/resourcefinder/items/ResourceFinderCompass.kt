@@ -7,6 +7,7 @@ import hellozyemlya.compat.items.CompatItem
 import hellozyemlya.resourcefinder.ResourceFinderTexts
 import hellozyemlya.resourcefinder.registry.ResourceRegistry
 import net.minecraft.entity.Entity
+import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.item.ItemStack
 import net.minecraft.registry.Registries
 import net.minecraft.text.Style
@@ -73,24 +74,28 @@ class ResourceFinderCompass(settings: Settings) : CompatItem(settings) {
     }
 
     override fun inventoryTick(stack: ItemStack?, world: World?, entity: Entity, slot: Int, selected: Boolean) {
-        if (selected && stack != null && world != null) {
+        if (stack != null && world != null) {
             if (!world.isClient) {
-                if (doTick(world, entity)) {
-                    val currentScanTargets = stack.compatGet(CompassComponents.SCAN_TARGETS_COMPONENT)
-                    if (!currentScanTargets.isNullOrEmpty()) {
-                        val newScanTargets = mutableMapOf<Identifier, ScanTarget>()
-                        val position = entity.blockPos
-                        currentScanTargets.forEach { (key, value) ->
-                            val newLifetime = value.lifetimeTicks - DEFAULT_SCAN_TIMEOUT
-                            if (newLifetime > 0) {
-                                val resourceRecord = ResourceRegistry.INSTANCE.getByGroup(Registries.ITEM.get(key))
-                                val posCandidate = resourceRecord.findClosest(16, position, world)
-                                newScanTargets[key] = ScanTarget(newLifetime, value.color, posCandidate)
+                if(entity.isPlayer) {
+                    val playerEntity = entity as PlayerEntity
+                    if(selected || playerEntity.offHandStack == stack || playerEntity.mainHandStack == stack) {
+                        if (doTick(world, entity)) {
+                            val currentScanTargets = stack.compatGet(CompassComponents.SCAN_TARGETS_COMPONENT)
+                            if (!currentScanTargets.isNullOrEmpty()) {
+                                val newScanTargets = mutableMapOf<Identifier, ScanTarget>()
+                                val position = entity.blockPos
+                                currentScanTargets.forEach { (key, value) ->
+                                    val newLifetime = value.lifetimeTicks - DEFAULT_SCAN_TIMEOUT
+                                    if (newLifetime > 0) {
+                                        val resourceRecord = ResourceRegistry.INSTANCE.getByGroup(Registries.ITEM.get(key))
+                                        val posCandidate = resourceRecord.findClosest(16, position, world)
+                                        newScanTargets[key] = ScanTarget(newLifetime, value.color, posCandidate)
+                                    }
+                                }
+                                stack.compatSet(CompassComponents.SCAN_TARGETS_COMPONENT, newScanTargets)
                             }
                         }
-                        stack.compatSet(CompassComponents.SCAN_TARGETS_COMPONENT, newScanTargets)
                     }
-
                 }
             }
         }
