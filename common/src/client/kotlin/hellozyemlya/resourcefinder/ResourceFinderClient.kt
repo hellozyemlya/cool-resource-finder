@@ -102,14 +102,18 @@ object ResourceFinderClient : ClientModInitializer {
             }
 
             if (mode != ModelTransformationMode.GUI) {
+                val underLegs = entity.blockPos.y - 1
+                val aboveHead = entity.blockPos.y + 2
+                val blockY = blockPos.y
                 matrices.pushPop {
                     val renderIndicator = when {
-                        entity.blockPos.y > blockPos.y -> {
+                        // only if block is below player legs
+                        blockY <= underLegs && blockY < aboveHead -> {
                             matrices.translate(0f, 0f, -++topIdx * 0.013f)
                             true
                         }
-
-                        entity.blockPos.y < blockPos.y -> {
+                        // only if block is above player head
+                        blockY > underLegs && blockY >= aboveHead -> {
                             matrices.multiply(
                                 RotationAxis.POSITIVE_Y.rotation(Math.PI.toFloat())
                             )

@@ -106,7 +106,7 @@ class ResourceFinderCompass(settings: Settings) : CompatItem(settings) {
 
                             if (!currentScanTargets.isNullOrEmpty()) {
                                 val newScanTargets = mutableMapOf<Identifier, ScanTarget>()
-                                val position = entity.blockPos
+                                val position = entity.blockPos.add(0, 1, 0)
                                 currentScanTargets.forEach { (key, value) ->
                                     val newLifetime = value.lifetimeTicks - DEFAULT_SCAN_TIMEOUT
                                     if (newLifetime > 0) {
