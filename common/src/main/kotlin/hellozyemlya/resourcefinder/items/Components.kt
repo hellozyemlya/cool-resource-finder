@@ -6,10 +6,23 @@ import com.mojang.serialization.codecs.UnboundedMapCodec
 import hellozyemlya.compat.compatRegisterComponent
 import hellozyemlya.resourcefinder.MOD_NAMESPACE
 import net.minecraft.util.Identifier
+import net.minecraft.util.StringIdentifiable
 import net.minecraft.util.math.BlockPos
 import java.util.*
 
 data class ScanTarget(val lifetimeTicks: Int, val color: Int = 0, val target: Optional<BlockPos> = Optional.empty())
+
+enum class ScanMode(private val value: String) : StringIdentifiable {
+    SPHERICAL("spherical"), CIRCULAR("circular");
+
+    override fun asString(): String {
+        return value
+    }
+
+    companion object {
+        val CODEC = StringIdentifiable.createCodec(ScanMode::values)
+    }
+}
 
 object FinderCodecs {
     private val SCAN_TARGET: Codec<ScanTarget> = RecordCodecBuilder.create { builder ->
@@ -25,4 +38,6 @@ object FinderCodecs {
 object CompassComponents {
     val SCAN_TARGETS_COMPONENT =
         compatRegisterComponent(Identifier.of(MOD_NAMESPACE, "c_scan_targets")!!, FinderCodecs.SCAN_TARGETS)
+    val SCAN_MODE_COMPONENT =
+        compatRegisterComponent(Identifier.of(MOD_NAMESPACE, "c_scan_mode")!!, ScanMode.CODEC)
 }
