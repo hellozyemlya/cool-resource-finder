@@ -2,11 +2,11 @@ package hellozyemlya.resourcefinder
 
 import hellozyemlya.common.pushPop
 import hellozyemlya.compat.client.compatTickDelta
-import hellozyemlya.compat.compatGet
 import hellozyemlya.compat.compatGetOrDefault
 import hellozyemlya.compat.registries.registerFakeModel
 import hellozyemlya.compat.registries.transformTintRgb
 import hellozyemlya.resourcefinder.items.CompassComponents
+import hellozyemlya.resourcefinder.items.ResourceFinderCompass
 import hellozyemlya.resourcefinder.items.ScanMode
 import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry
@@ -30,6 +30,7 @@ import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 import kotlin.jvm.optionals.getOrNull
 import kotlin.math.atan2
+import kotlin.math.pow
 
 @Suppress("unused")
 object ResourceFinderClient : ClientModInitializer {
@@ -74,9 +75,16 @@ object ResourceFinderClient : ClientModInitializer {
     ) {
         var topIdx = -1
         var botIdx = -1
+
         val scanRecords = stack.compatGetOrDefault(CompassComponents.SCAN_TARGETS_COMPONENT, mapOf()).values
+
+        val squaredScanDistance = ResourceFinderCompass.scanDistance(
+            stack.compatGetOrDefault(CompassComponents.SCAN_MODE_COMPONENT, ScanMode.SPHERICAL)
+        ).toFloat().pow(2)
+
         scanRecords.forEachIndexed { idx, targetRecord ->
             val blockPos = targetRecord.target.getOrNull() ?: return@forEachIndexed
+            val distance = blockPos.getSquaredDistance(entity.blockPos)
             quadColorOverride = targetRecord.color
             matrices.pushPop {
                 matrices.translate(0f, (idx * 0.01f), 0f)
@@ -88,7 +96,7 @@ object ResourceFinderClient : ClientModInitializer {
                         )
                     )
                 )
-
+                matrices.scale(1f, 1f, (0.5f + 0.5f * (distance.toFloat() / squaredScanDistance)).coerceIn(0.5f, 1f))
                 renderer.renderItem(
                     stack,
                     ModelTransformationMode.NONE,
