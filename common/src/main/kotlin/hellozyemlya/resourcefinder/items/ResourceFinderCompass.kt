@@ -26,6 +26,7 @@ class ResourceFinderCompass(settings: Settings) : CompatItem(settings) {
     companion object {
         const val DEFAULT_SCAN_TIMEOUT = 10
         const val DEFAULT_SCAN_DISTANCE = 16
+
     }
 
     override fun compatAllowAnimations(): Boolean {
@@ -100,7 +101,6 @@ class ResourceFinderCompass(settings: Settings) : CompatItem(settings) {
 
                             // in spherical scan mode scans for 16 blocks in each direction
                             // in circular mode scans twice horizontally, but only 2 blocks up-down direction
-                            val verticalDistance = if (scanMode == ScanMode.SPHERICAL) DEFAULT_SCAN_DISTANCE else 2
                             val horizontalDistance =
                                 if (scanMode == ScanMode.SPHERICAL) DEFAULT_SCAN_DISTANCE else DEFAULT_SCAN_DISTANCE * 2
 
@@ -113,7 +113,7 @@ class ResourceFinderCompass(settings: Settings) : CompatItem(settings) {
                                         val resourceRecord =
                                             ResourceRegistry.INSTANCE.getByGroup(Registries.ITEM.get(key))
                                         val posCandidate =
-                                            resourceRecord.findClosest(horizontalDistance, verticalDistance, position, world)
+                                            resourceRecord.findClosest(horizontalDistance, position, world, scanMode)
                                         newScanTargets[key] = ScanTarget(newLifetime, value.color, posCandidate)
                                     }
                                 }
