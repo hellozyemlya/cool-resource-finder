@@ -99,24 +99,6 @@ class ResourceFinderCompass(settings: Settings) : CompatItem(settings) {
         if (stack != null && world != null) {
             if (!world.isClient) {
                 if (entity.isPlayer) {
-                    // junk code to find spawner
-                    val position = entity.blockPos.add(0, 1, 0)
-//                    val predicate = BlockPredicateArgumentType.parse(Registries.BLOCK.readOnlyWrapper, StringReader("minecraft:spawner{SpawnData: {entity: {id: \"minecraft:skeleton\"}}}"))
-                    val predicate =
-                        BlockPredicateArgumentType.parse(Registries.BLOCK.readOnlyWrapper, StringReader("#coal_ores"))
-
-                    val spawner = BlockPos.findClosest(position, 25, 25) { pos ->
-                        val blockV = world.getBlockEntity(pos)
-                        predicate.test(CachedBlockPosition(world, pos, true))
-                    }
-                    println(spawner)
-//                    val spawner = position.getClosestSpawner(world)
-//                    if(spawner.isPresent) {
-//                        val spawner = spawner.get()!!
-//                        println(spawner.getSpawnedMobId())
-//                    }
-
-
                     val playerEntity = entity as PlayerEntity
                     if (selected || playerEntity.offHandStack == stack || playerEntity.mainHandStack == stack) {
                         if (doTick(world, entity)) {
