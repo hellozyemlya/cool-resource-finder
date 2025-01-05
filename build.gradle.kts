@@ -2,12 +2,11 @@ import me.modmuss50.mpp.ModPublishExtension
 import net.fabricmc.loom.api.LoomGradleExtensionAPI
 import net.fabricmc.loom.task.RemapJarTask
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
-import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.util.archivesName
 
 plugins {
-    id("fabric-loom") version "1.7.4" apply false
-    id("org.jetbrains.kotlin.jvm") version "1.9.0" apply false
-    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.0" apply false
+    id("fabric-loom") version "1.9-SNAPSHOT" apply false
+    id("org.jetbrains.kotlin.jvm") version "2.1.0" apply false
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.1.0" apply false
     id("me.modmuss50.mod-publish-plugin") version "0.1.1" apply false
 }
 

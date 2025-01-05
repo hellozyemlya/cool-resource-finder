@@ -1,5 +1,6 @@
 package hellozyemlya.resourcefinder.items
 
+import com.mojang.brigadier.StringReader
 import hellozyemlya.compat.compatGet
 import hellozyemlya.compat.compatGetOrDefault
 import hellozyemlya.compat.compatSet
@@ -7,6 +8,8 @@ import hellozyemlya.compat.formatTicks
 import hellozyemlya.compat.items.CompatItem
 import hellozyemlya.resourcefinder.ResourceFinderTexts
 import hellozyemlya.resourcefinder.registry.ResourceRegistry
+import net.minecraft.block.pattern.CachedBlockPosition
+import net.minecraft.command.argument.BlockPredicateArgumentType
 import net.minecraft.entity.Entity
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.item.ItemStack
@@ -18,8 +21,10 @@ import net.minecraft.text.Texts
 import net.minecraft.util.Hand
 import net.minecraft.util.Identifier
 import net.minecraft.util.TypedActionResult
+import net.minecraft.util.math.BlockPos
 import net.minecraft.world.World
 import java.util.*
+
 
 // TODO calculate ticks and time based on tick rate
 class ResourceFinderCompass(settings: Settings) : CompatItem(settings) {
@@ -94,6 +99,24 @@ class ResourceFinderCompass(settings: Settings) : CompatItem(settings) {
         if (stack != null && world != null) {
             if (!world.isClient) {
                 if (entity.isPlayer) {
+                    // junk code to find spawner
+                    val position = entity.blockPos.add(0, 1, 0)
+//                    val predicate = BlockPredicateArgumentType.parse(Registries.BLOCK.readOnlyWrapper, StringReader("minecraft:spawner{SpawnData: {entity: {id: \"minecraft:skeleton\"}}}"))
+                    val predicate =
+                        BlockPredicateArgumentType.parse(Registries.BLOCK.readOnlyWrapper, StringReader("#coal_ores"))
+
+                    val spawner = BlockPos.findClosest(position, 25, 25) { pos ->
+                        val blockV = world.getBlockEntity(pos)
+                        predicate.test(CachedBlockPosition(world, pos, true))
+                    }
+                    println(spawner)
+//                    val spawner = position.getClosestSpawner(world)
+//                    if(spawner.isPresent) {
+//                        val spawner = spawner.get()!!
+//                        println(spawner.getSpawnedMobId())
+//                    }
+
+
                     val playerEntity = entity as PlayerEntity
                     if (selected || playerEntity.offHandStack == stack || playerEntity.mainHandStack == stack) {
                         if (doTick(world, entity)) {
